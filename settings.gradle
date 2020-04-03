@@ -1,0 +1,3 @@
+rootProject.name='RTCandroid-Example'
+include ':app'
+include ':rtc'

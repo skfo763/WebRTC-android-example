@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="CustomSurfaceViewRenderer">
+        <!-- attr 필요할 시 추가합니다 -->
+    </declare-styleable>
+</resources>
