@@ -30,7 +30,7 @@ open class RTCPeerClient(context: Application, observer: PeerConnection.Observer
 
     // rtc
     private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
-    private val videoCapturer by lazy { context.getVideoCapture() }
+    private val videoCapture by lazy { context.getVideoCapture() }
     private val localVideoSource by lazy { peerConnectionFactory.createVideoSource(false) }
     private val localAudioSource by lazy {
         peerConnectionFactory.createAudioSource(MediaConstraints())
@@ -85,7 +85,7 @@ open class RTCPeerClient(context: Application, observer: PeerConnection.Observer
     }
 
     private fun Context.getVideoCapture() =
-        Camera2Enumerator(this).apply {
+        Camera2Enumerator(this).run {
             deviceNames.find {
                 isFrontFacing(it)
             }?.let {
@@ -94,9 +94,9 @@ open class RTCPeerClient(context: Application, observer: PeerConnection.Observer
         }
 
     fun SurfaceViewRenderer.startLocalVideoCapture() {
-        val surfaceViewRenderer = SurfaceTextureHelper.create(Thread.currentThread().name, rootEglbase.eglBaseContext)
-        (videoCapturer as VideoCapturer).initialize(surfaceViewRenderer, context, localVideoSource.capturerObserver)
-        (videoCapturer as VideoCapturer).startCapture(240, 240, 60)
+        val surfaceTextureHelpder = SurfaceTextureHelper.create(Thread.currentThread().name, rootEglbase.eglBaseContext)
+        (videoCapture as VideoCapturer).initialize(surfaceTextureHelpder, this.context, localVideoSource.capturerObserver)
+        videoCapture.startCapture(240, 240, 60)
 
         val localVideoTrack = peerConnectionFactory.createVideoTrack(VIDEO_TRACK_ID, localVideoSource)
         localVideoTrack.addSink(this)

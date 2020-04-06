@@ -18,12 +18,6 @@ open class SocketOnListener(val socket: Socket, val roomId: String) {
 
     val onJoinToRoomListener = Emitter.Listener {
         socket.run {
-            emit(Socket.EVENT_MESSAGE, GOT_USER_MEDIA)
-        }
-    }
-
-    val onConnectedListener = Emitter.Listener {
-        socket.run {
             emit(CREATE_OR_JOIN, roomId)
             emit(Socket.EVENT_MESSAGE, GOT_USER_MEDIA)
         }
@@ -35,13 +29,6 @@ open class SocketOnListener(val socket: Socket, val roomId: String) {
 
     val onErrorReceivedListener = Emitter.Listener {
 
-    }
-
-    private fun emitFirstConnectMessage() {
-        socket.run {
-            emit(CREATE_OR_JOIN, roomId)
-            emit(Socket.EVENT_MESSAGE, GOT_USER_MEDIA)
-        }
     }
 
     fun sendRTCinfo(dataObject: Any?) = runBlocking {

@@ -1,6 +1,5 @@
 package com.skfo763.rtc
 
-import android.app.Application
 import com.skfo763.rtc.data.SessionDescriptionsType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -11,15 +10,14 @@ import org.webrtc.IceCandidate
 import org.webrtc.MediaStream
 import org.webrtc.SessionDescription
 
-class RTCApp: Application() {
-
+class RTCApp {
     companion object {
         @JvmStatic
         val coChannel = CoChannel()
     }
 }
 
-class CoChannel {
+open class CoChannel {
     val channel: BroadcastChannel<Any> = ConflatedBroadcastChannel()
 //  val channel: BroadcastChannel<String> = ConflatedBroadcastChannel()
 //  val channelDescription: BroadcastChannel<SessionDescription> = ConflatedBroadcastChannel()

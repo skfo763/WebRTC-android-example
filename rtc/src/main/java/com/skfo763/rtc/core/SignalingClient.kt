@@ -1,7 +1,9 @@
 package com.skfo763.rtc.core
 
+import android.util.Log
 import com.skfo763.rtc.RTCApp
 import com.skfo763.rtc.data.BYE
+import com.skfo763.rtc.data.LOG_TAG
 import com.skfo763.rtc.utils.setLogDebug
 import io.socket.client.IO
 import io.socket.client.Socket
@@ -15,7 +17,7 @@ import javax.net.ssl.*
 open class SignalingClient {
 
     companion object {
-        private const val TEST_ADDRESS = "https://192.168.0.16"
+        private const val TEST_ADDRESS = "https://192.168.0.235"
         private const val TEST_PORT = "8889"
         private const val TEST_ROOM_ID = "hi"
     }
@@ -80,14 +82,14 @@ open class SignalingClient {
                         on(Socket.EVENT_CONNECT_ERROR, onErrorReceivedListener)
                         on(Socket.EVENT_MESSAGE, onMessageReceivedListener)
                     } ?: run {
+                        Log.d(LOG_TAG, "error")
                         // 소켓 리스너 생성 에러
                     }
                     connect()
                 }
             }
-
-
         } catch (e:Exception){
+            e.printStackTrace()
             // 소켓 연결중 문제가 생겼으니 sokcet 및 peerConnection 관련 전부 해제후
             // 에러 발생을 알린 후 , 되돌아간다.
             // TODO() = 연결 해제 및 뷰(or 상태) 롤백
