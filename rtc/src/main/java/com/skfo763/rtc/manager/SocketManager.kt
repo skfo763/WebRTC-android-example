@@ -14,4 +14,6 @@ interface SocketManager {
 
     fun sendHangUpEventToSocket(data: Any)
 
+    fun sendCommonEventToSocket(data: String)
+
 }

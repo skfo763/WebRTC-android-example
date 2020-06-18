@@ -96,6 +96,14 @@ class SocketHelper(listener: EmitterListener) {
         }
     }
 
+    fun sendSocket(event: String, vararg data: Any, onCall: ((args: Array<Any?>) -> Unit)? = null) {
+        onCall?.let { function ->
+            socket?.emit(event, data) { function.invoke(it) }
+        } ?: kotlin.run {
+            socket?.emit(event, data)
+        }
+    }
+
     fun sendSocket(event: SocketListenerEvent, vararg data: Any, onCall: ((args: Array<Any?>) -> Unit)? = null) {
         onCall?.let { function ->
             socket?.emit(event.value, data) { function.invoke(it) }
@@ -130,5 +138,4 @@ class SocketHelper(listener: EmitterListener) {
         off(SocketListenerEvent.EVENT_TERMINATED.value, terminatedListener)
         off(SocketListenerEvent.EVENT_WAITING_STATUS.value, waitingStatusListener)
     }
-
 }

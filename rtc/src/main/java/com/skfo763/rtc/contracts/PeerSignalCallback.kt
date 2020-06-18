@@ -8,9 +8,9 @@ interface PeerSignalCallback {
 
     fun onConnected()
 
-    fun createOffer()
+    fun createMatchingOffer()
 
-    fun createAnswer()
+    fun createMatchingAnswer()
 
     fun onOfferReceived(description: SessionDescription)
 

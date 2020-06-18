@@ -6,7 +6,6 @@ import com.skfo763.rtc.data.*
 import com.skfo763.socket.contracts.EmitterListener
 import com.skfo763.socket.core.SocketHelper
 import com.skfo763.socket.core.SocketListenerEvent
-import org.json.JSONException
 import org.json.JSONObject
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
@@ -104,6 +103,10 @@ class SocketManagerImpl(private val peerSignalCallback: PeerSignalCallback): Emi
         }
     }
 
+    override fun sendCommonEventToSocket(data: String) {
+        helper.sendSocket(data)
+    }
+
     override fun onMessageReceived(message: Any?) {
         val data = JSONObject("${message ?: return}")
         when(data[TYPE]) {
@@ -145,9 +148,9 @@ class SocketManagerImpl(private val peerSignalCallback: PeerSignalCallback): Emi
                 peerSignalCallback.onMatched(matchData)
 
                 if(matchData.getBoolean(OFFER)) {
-                    peerSignalCallback.createOffer()
+                    peerSignalCallback.createMatchingOffer()
                 } else {
-                    peerSignalCallback.createAnswer()
+                    peerSignalCallback.createMatchingAnswer()
                 }
             } catch (e: java.lang.Exception) {
                 peerSignalCallback.onError(true, message = e.message)

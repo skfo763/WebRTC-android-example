@@ -151,19 +151,16 @@ class PeerManagerImpl(
             override fun onCreateSuccess(desc: SessionDescription?) {
                 peerConnection.setLocalDescription( object : SdpObserver {
                     override fun onSetFailure(p0: String?) {
-
+                        // TODO(에러 핸들링)
                     }
-
                     override fun onSetSuccess() {
 
                     }
-
                     override fun onCreateSuccess(p0: SessionDescription?) {
 
                     }
-
                     override fun onCreateFailure(p0: String?) {
-
+                        // TODO(에러 핸들링)
                     }
                 }, desc)
                 sdpObserver.onCreateSuccess(desc)
@@ -176,7 +173,7 @@ class PeerManagerImpl(
             override fun onCreateSuccess(desc: SessionDescription?) {
                 peerConnection.setLocalDescription( object: SdpObserver {
                     override fun onSetFailure(p0: String?) {
-
+                        // TODO(에러 핸들링)
                     }
                     override fun onSetSuccess() {
 
@@ -185,7 +182,7 @@ class PeerManagerImpl(
 
                     }
                     override fun onCreateFailure(p0: String?) {
-
+                        // TODO(에러 핸들링)
                     }
                 }, desc)
                 sdpObserver.onCreateSuccess(desc)

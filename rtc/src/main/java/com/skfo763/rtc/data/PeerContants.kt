@@ -20,3 +20,5 @@ const val PEER_CREATE_ERROR = "PeerConnection Create is have Error"
 const val VIDEOCAPTURER_NULL = "getVideoCapturer return null"
 const val CREATE_OFFER_FAILED = "CREATED_OFFER_FAILED"
 const val CREATE_ANSWER_FAILED = "CREATED_ANSWER_FAILED"
+
+const val CALL_STARTED = "call started"
