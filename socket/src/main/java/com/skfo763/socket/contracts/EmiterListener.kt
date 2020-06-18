@@ -9,11 +9,13 @@ interface EmitterListener {
 
     fun onMatched(match: Array<Any>)
 
-    fun onDisconnected()
+    fun onDisconnected(disconnect: Any?)
 
-    fun onConnectError()
+    fun onConnectError(retryCount: Int)
 
     fun onWaitingStatus(wait: Array<Any>)
 
     fun onTerminate(terminate: Array<Any>)
+
+    fun onErrorRetry(retryCount: Int)
 }

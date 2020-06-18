@@ -18,13 +18,16 @@ interface PeerSignalCallback {
 
     fun onIceCandidateReceived(iceCandidate: IceCandidate)
 
-    fun onMatched(obj: JSONObject)
+    fun onMatched(data: JSONObject)
 
-    fun onHangUp(ackJson: JSONObject)
+    fun onHangUp(data: JSONObject)
 
     fun onHangUpSuccess()
 
     fun onTerminate(terminateState: String)
 
-    fun onError(isCritical: Boolean, showMessage: Boolean, message: String)
+    fun onError(isCritical: Boolean, showMessage: Boolean = false, message: String? = null)
+
+    fun onWaitingStatusReceived(data: JSONObject)
+
 }

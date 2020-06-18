@@ -24,7 +24,7 @@ class SocketHelper(listener: EmitterListener) {
 
     private val connectListener = Emitter.Listener {
         retryConnectionCount.set(0)
-        listener.onConnected()
+        listener.onConnected(it)
     }
 
     private val reconnectListener = Emitter.Listener {
@@ -36,15 +36,16 @@ class SocketHelper(listener: EmitterListener) {
     }
 
     private val disconnectListener = Emitter.Listener {
-        listener.onDisconnected()
+        listener.onDisconnected(it.getOrNull(0))
     }
 
     private val connectErrorListener = Emitter.Listener {
         val connectCount = retryConnectionCount.get()
         if(connectCount >= RECONNECTION_ATTEMPTS) {
-            listener.onConnectError()
+            listener.onConnectError(connectCount)
             retryConnectionCount.set(0)
         } else {
+            listener.onErrorRetry(connectCount)
             retryConnectionCount.set(connectCount + 1)
         }
     }
@@ -89,48 +90,45 @@ class SocketHelper(listener: EmitterListener) {
         if(socket == null) {
             val socketOptions = getSocketOptions(getOkHttpClient())
             socket = IO.socket(url, socketOptions).apply {
-                connectListener(this)
+                connectListener()
+                connect()
             }
         }
     }
 
     fun sendSocket(event: SocketListenerEvent, vararg data: Any, onCall: ((args: Array<Any?>) -> Unit)? = null) {
-        onCall?.let {
-            socket?.emit(event.value, data) { onCall?.invoke(it) }
+        onCall?.let { function ->
+            socket?.emit(event.value, data) { function.invoke(it) }
         } ?: kotlin.run {
             socket?.emit(event.value, data)
         }
     }
 
     fun releaseSocket() {
-
-
+        socket?.disconnectListener()
+        socket = null
     }
 
-    private fun connectListener(socket: Socket) {
-        socket.apply {
-            on(SocketListenerEvent.EVENT_MESSAGE.value, messageListener)
-            on(SocketListenerEvent.EVENT_CONNECT.value, connectListener)
-            on(SocketListenerEvent.EVENT_RECONNECT_ERROR.value, connectErrorListener)
-            on(SocketListenerEvent.EVENT_DISCONNECT.value, disconnectListener)
-            on(SocketListenerEvent.EVENT_RECONNECT.value, reconnectListener)
-            on(SocketListenerEvent.EVENT_MATCHED.value, matchListener)
-            on(SocketListenerEvent.EVENT_TERMINATED.value, terminatedListener)
-            on(SocketListenerEvent.EVENT_WAITING_STATUS.value, waitingStatusListener)
-        }
+    private fun Socket.connectListener() {
+        on(SocketListenerEvent.EVENT_MESSAGE.value, messageListener)
+        on(SocketListenerEvent.EVENT_CONNECT.value, connectListener)
+        on(SocketListenerEvent.EVENT_RECONNECT_ERROR.value, connectErrorListener)
+        on(SocketListenerEvent.EVENT_DISCONNECT.value, disconnectListener)
+        on(SocketListenerEvent.EVENT_RECONNECT.value, reconnectListener)
+        on(SocketListenerEvent.EVENT_MATCHED.value, matchListener)
+        on(SocketListenerEvent.EVENT_TERMINATED.value, terminatedListener)
+        on(SocketListenerEvent.EVENT_WAITING_STATUS.value, waitingStatusListener)
     }
 
-    private fun disconnectListener(socket: Socket) {
-        socket.apply {
-            off(SocketListenerEvent.EVENT_MESSAGE.value, messageListener)
-            off(SocketListenerEvent.EVENT_CONNECT.value, connectListener)
-            off(SocketListenerEvent.EVENT_RECONNECT_ERROR.value, connectErrorListener)
-            off(SocketListenerEvent.EVENT_DISCONNECT.value, disconnectListener)
-            off(SocketListenerEvent.EVENT_RECONNECT.value, reconnectListener)
-            off(SocketListenerEvent.EVENT_MATCHED.value, matchListener)
-            off(SocketListenerEvent.EVENT_TERMINATED.value, terminatedListener)
-            off(SocketListenerEvent.EVENT_WAITING_STATUS.value, waitingStatusListener)
-        }
+    private fun Socket.disconnectListener() {
+        off(SocketListenerEvent.EVENT_MESSAGE.value, messageListener)
+        off(SocketListenerEvent.EVENT_CONNECT.value, connectListener)
+        off(SocketListenerEvent.EVENT_RECONNECT_ERROR.value, connectErrorListener)
+        off(SocketListenerEvent.EVENT_DISCONNECT.value, disconnectListener)
+        off(SocketListenerEvent.EVENT_RECONNECT.value, reconnectListener)
+        off(SocketListenerEvent.EVENT_MATCHED.value, matchListener)
+        off(SocketListenerEvent.EVENT_TERMINATED.value, terminatedListener)
+        off(SocketListenerEvent.EVENT_WAITING_STATUS.value, waitingStatusListener)
     }
 
 }

@@ -7,5 +7,3 @@ const val RECONNECTION_ATTEMPTS = 10            // 재연결 시도 횟수
 const val RECONNECTION_DELAY = 1000L             // 재연결 시도 시간
 const val RECONNECTION_DELAY_MAX = 1000L         // 최대 재연결 시도 시간
 
-const val SERVER_DISCONNECT = "io server disconnect"
-
