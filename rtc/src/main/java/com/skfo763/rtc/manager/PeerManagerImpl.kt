@@ -6,60 +6,69 @@ import org.webrtc.*
 import org.webrtc.audio.AudioDeviceModule
 
 class PeerManagerImpl(
+    context: Context,
     observer: PeerConnection.Observer,
-    surfaceViewRenderer: SurfaceViewRenderer,
-    private val videoCaptureManager: VideoCaptureManager,
-    private val signalServerInfo: SignalServerInfo,
-    private val audioModule: AudioDeviceModule,
-    private val context: Context
+    private val audioModule: AudioDeviceModule
 ) : PeerManager {
 
     private val rootEglBase = EglBase.create()
-    private val iceServer: List<PeerConnection.IceServer> = mutableListOf<PeerConnection.IceServer>().apply {
-        signalServerInfo.stunAndTurn.forEach { data ->
-            add(
-                PeerConnection.IceServer.builder(data.urlList)
-                    .setUsername(data.userName)
-                    .setPassword(data.credential)
-                    .createIceServer()
-            )
-        }
-    }
 
-    private val peerConnectionFactory =  buildPeerConnectionFactory()
-    private val localVideoSource =  peerConnectionFactory.createVideoSource(false)
+    private val iceServer = mutableListOf<PeerConnection.IceServer>()
+
+    // rtc
+    private val peerConnectionFactory = buildPeerConnectionFactory(context)
+    private val localVideoSource = peerConnectionFactory.createVideoSource(false)
     private val localAudioSource = peerConnectionFactory.createAudioSource(MediaConstraints())
-    private val peerConnection = observer.buildPeerConnection()
+    private val videoCaptureManager: VideoCaptureManager = VideoCaptureManagerImpl.getVideoCapture(context)
 
-    private val surfaceTextureHelper : SurfaceTextureHelper
-    private val localVideoTrack : VideoTrack
-    private val localAudioTrack : AudioTrack
-    private val localStream : MediaStream
+    private val peerConnection by lazy { observer.buildPeerConnection() }
 
-    val constraints = MediaConstraints().apply {
+    // media stream
+    private var surfaceTextureHelper : SurfaceTextureHelper? = null
+    private var localVideoTrack : VideoTrack? = null
+    private var localAudioTrack : AudioTrack? = null
+    private var localStream : MediaStream? = null
+
+    private val constraints = MediaConstraints().apply {
         mandatory.add(MediaConstraints.KeyValuePair(OFFER_TO_RECEIVE_VIDEO,"true"))
         mandatory.add(MediaConstraints.KeyValuePair(OFFER_TO_RECEIVE_AUDIO, "true"))
         optional.add(MediaConstraints.KeyValuePair(DTLS_SRTP_KEY_AGREEMENT, "true"))
     }
 
-    init {
+    override fun initSurfaceView(surfaceViewRenderer: SurfaceViewRenderer) {
+        surfaceViewRenderer.setMirror(true)
+        surfaceViewRenderer.setEnableHardwareScaler(true)
+        surfaceViewRenderer.init(rootEglBase.eglBaseContext, null)
+    }
+
+    override fun startLocalVideoCapture(localSurfaceView: SurfaceViewRenderer) {
         surfaceTextureHelper = SurfaceTextureHelper.create(Thread.currentThread().name, rootEglBase.eglBaseContext)
-
-        videoCaptureManager.videoCapturer?.initialize(surfaceTextureHelper, surfaceViewRenderer.context, localVideoSource.capturerObserver)
-        videoCaptureManager.videoCapturer?.startCapture(240, 240, 60)
-
         localVideoTrack = peerConnectionFactory.createVideoTrack(VIDEO_TRACK_ID, localVideoSource)
-        localVideoTrack.addSink(surfaceViewRenderer)
-
         localAudioTrack = peerConnectionFactory.createAudioTrack(AUDIO_TRACK_ID, localAudioSource)
-        localAudioTrack.setEnabled(true)
-
         localStream = peerConnectionFactory.createLocalMediaStream(LOCAL_STREAM_ID)
-        localStream.addTrack(localVideoTrack)
-        localStream.addTrack(localAudioTrack)
+
+        videoCaptureManager.videoCapturer?.let {
+            it.initialize(surfaceTextureHelper, localSurfaceView.context, localVideoSource.capturerObserver)
+            it.startCapture(240, 240, 60)
+        }
+        localVideoTrack?.addSink(localSurfaceView)
+        localAudioTrack?.setEnabled(true)
+        localStream?.addTrack(localAudioTrack)
 
         peerConnection?.addStream(localStream) ?: run {
             // TODO(에러 핸들링)
+        }
+    }
+
+    override fun setIceServer(signalServerInfo: SignalServerInfo) {
+        iceServer.clear()
+        signalServerInfo.stunAndTurn.forEach { data ->
+            iceServer.add(
+                PeerConnection.IceServer.builder(data.urlList)
+                    .setUsername(data.userName)
+                    .setPassword(data.credential)
+                    .createIceServer()
+            )
         }
     }
 
@@ -70,7 +79,7 @@ class PeerManagerImpl(
             .createInitializationOptions())
     }
 
-    private fun buildPeerConnectionFactory(): PeerConnectionFactory {
+    private fun buildPeerConnectionFactory(context: Context): PeerConnectionFactory {
         initPeerConnectionFactory(context)
 
         val factory = PeerConnectionFactory.builder()
@@ -127,29 +136,10 @@ class PeerManagerImpl(
         }
     }
 
-    private val localDescriptionSdpObserver = object: SdpObserver {
-        override fun onSetFailure(p0: String?) {
-            TODO("Not yet implemented")
-        }
-
-        override fun onSetSuccess() {
-            TODO("Not yet implemented")
-        }
-
-        override fun onCreateSuccess(p0: SessionDescription?) {
-            TODO("Not yet implemented")
-        }
-
-        override fun onCreateFailure(p0: String?) {
-            TODO("Not yet implemented")
-        }
-
-    }
-
     override fun callOffer(sdpObserver: SdpObserver) {
         peerConnection?.createOffer(object: SdpObserver by sdpObserver {
             override fun onCreateSuccess(desc: SessionDescription?) {
-                peerConnection.setLocalDescription( object : SdpObserver {
+                peerConnection?.setLocalDescription( object : SdpObserver {
                     override fun onSetFailure(p0: String?) {
                         // TODO(에러 핸들링)
                     }
@@ -171,7 +161,7 @@ class PeerManagerImpl(
     override fun callAnswer(sdpObserver: SdpObserver) {
         peerConnection?.createAnswer( object : SdpObserver by sdpObserver {
             override fun onCreateSuccess(desc: SessionDescription?) {
-                peerConnection.setLocalDescription( object: SdpObserver {
+                peerConnection?.setLocalDescription( object: SdpObserver {
                     override fun onSetFailure(p0: String?) {
                         // TODO(에러 핸들링)
                     }
@@ -198,12 +188,12 @@ class PeerManagerImpl(
         peerConnection?.addIceCandidate(iceCandidate)
     }
 
-    override fun disconnect() {
+    override fun disconnectPeer() {
         peerConnection?.dispose()
         localAudioSource.dispose()
         videoCaptureManager.releaseVideoCapture { it.printStackTrace() }
         localVideoSource.dispose()
-        surfaceTextureHelper.dispose()
+        surfaceTextureHelper?.dispose()
         peerConnectionFactory.dispose()
         rootEglBase.release()
 

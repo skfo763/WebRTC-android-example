@@ -1,10 +1,18 @@
 package com.skfo763.rtc.manager
 
+import com.skfo763.rtc.data.SignalServerInfo
 import org.webrtc.IceCandidate
 import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
+import org.webrtc.SurfaceViewRenderer
 
 interface PeerManager {
+
+    fun initSurfaceView(surfaceViewRenderer: SurfaceViewRenderer)
+
+    fun startLocalVideoCapture(localSurfaceView: SurfaceViewRenderer)
+
+    fun setIceServer(signalServerInfo: SignalServerInfo)
 
     fun callOffer(sdpObserver: SdpObserver)
 
@@ -14,5 +22,5 @@ interface PeerManager {
 
     fun addIceCandidate(iceCandidate: IceCandidate)
 
-    fun disconnect()
+    fun disconnectPeer()
 }

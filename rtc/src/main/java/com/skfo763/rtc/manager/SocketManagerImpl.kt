@@ -21,11 +21,14 @@ class SocketManagerImpl(private val peerSignalCallback: PeerSignalCallback): Emi
     private val helper = SocketHelper(this)
     private val gson = Gson()
 
+    override fun initializeSocket(url: String) {
+        helper.initializeSocket(url)
+    }
+
     override fun sendJoinToSocket(userInfo: JSONObject) {
         helper.sendSocket(SocketListenerEvent.EVENT_JOIN, userInfo) {
             try {
                 val ackJson = JSONObject("${it[it.size - 1]}")
-                val msg = ackJson.getString("msg")
                 if(ackJson.getBoolean("success")) {
                     if(ackJson.getString("status") == FINISHED) {
                         peerSignalCallback.onTerminate(FINISHED)
@@ -107,6 +110,10 @@ class SocketManagerImpl(private val peerSignalCallback: PeerSignalCallback): Emi
         helper.sendSocket(data)
     }
 
+    override fun disconnectSocket() {
+        helper.releaseSocket()
+    }
+
     override fun onMessageReceived(message: Any?) {
         val data = JSONObject("${message ?: return}")
         when(data[TYPE]) {
@@ -134,7 +141,7 @@ class SocketManagerImpl(private val peerSignalCallback: PeerSignalCallback): Emi
     }
 
     override fun onConnected(connectData: Array<Any>) {
-        peerSignalCallback.onConnected()
+        peerSignalCallback.onConnected(connectData)
     }
 
     override fun onReconnected() {

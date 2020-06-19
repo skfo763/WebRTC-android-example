@@ -6,7 +6,7 @@ import org.webrtc.SessionDescription
 
 interface PeerSignalCallback {
 
-    fun onConnected()
+    fun onConnected(connectData: Array<Any>)
 
     fun createMatchingOffer()
 

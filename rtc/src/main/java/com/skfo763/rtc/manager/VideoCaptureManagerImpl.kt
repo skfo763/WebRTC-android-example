@@ -1,6 +1,7 @@
 package com.skfo763.rtc.manager
 
 import android.content.Context
+import android.util.Log
 import com.skfo763.rtc.data.VIDEOCAPTURER_NULL
 import org.webrtc.*
 import java.lang.Exception
@@ -11,7 +12,7 @@ class VideoCaptureManagerImpl private constructor(
 
     companion object {
         @JvmStatic
-        fun getVideoCapture(context: Context, onError: ((errorMessage: String) -> Unit)? = null): VideoCaptureManager {
+        fun getVideoCapture(context: Context): VideoCaptureManager {
             val cameraEnumerator = if(Camera2Enumerator.isSupported(context)) {
                 Camera2Enumerator(context)
             } else {
@@ -22,7 +23,7 @@ class VideoCaptureManagerImpl private constructor(
                 }?.let {
                     createCapturer(it, null)
                 } ?: kotlin.run {
-                    onError?.invoke(VIDEOCAPTURER_NULL)
+                    Log.e("VideoCaptureManager", VIDEOCAPTURER_NULL)
                 }
             }
             return VideoCaptureManagerImpl(cameraEnumerator as? VideoCapturer)

@@ -6,6 +6,8 @@ import org.webrtc.SessionDescription
 
 interface SocketManager {
 
+    fun initializeSocket(url: String)
+
     fun sendJoinToSocket(userInfo: JSONObject)
 
     fun sendOfferAnswerToSocket(sessionDescription: SessionDescription)
@@ -16,4 +18,5 @@ interface SocketManager {
 
     fun sendCommonEventToSocket(data: String)
 
+    fun disconnectSocket()
 }
