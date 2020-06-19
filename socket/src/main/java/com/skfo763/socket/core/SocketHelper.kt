@@ -1,8 +1,7 @@
 package com.skfo763.socket.core
 
 import com.skfo763.socket.*
-import com.skfo763.socket.contracts.EmitterListener
-import io.socket.client.Ack
+import com.skfo763.socket.contracts.SocketEmitterListener
 import io.socket.client.IO
 import io.socket.client.Socket
 import io.socket.emitter.Emitter
@@ -13,7 +12,7 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 
-class SocketHelper(listener: EmitterListener) {
+class SocketHelper(listener: SocketEmitterListener) {
 
     private var socket: Socket? = null
     private val retryConnectionCount = AtomicInteger(0)

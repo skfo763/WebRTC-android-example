@@ -1,6 +1,6 @@
 package com.skfo763.socket.contracts
 
-interface EmitterListener {
+interface SocketEmitterListener {
     fun onMessageReceived(message: Any?)
 
     fun onConnected(connectData: Array<Any>)

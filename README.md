@@ -11,52 +11,19 @@
 3. WebRTC를 사용하는 중 발생하는 소켓 통신을 도식화한 간단한 이미지를 첨부합니다.
 ![webrtc-socket-img](./art/webrtc-socket-img.png)
 
-## 2. Before Start
-이 데모 앱은 [WebRTC 가이드라인](http://webrtc.github.io/webrtc-org/native-code/android/) 에서 제공하는 사전 빌드된 라이브러리를 사용합니다. 
+## 2. Architecture
 
-maven 저장소에서 webrtc 라이브러리를 받아옵니다.
-~~~Gradle
-// build.gradle (app)
-implementation 'org.webrtc:google-webrtc:1.0.+'
-~~~
+### Overview
+1. 이 데모 앱은 [WebRTC 가이드라인](http://webrtc.github.io/webrtc-org/native-code/android/) 에서 제공하는 사전 빌드된 라이브러리를 사용합니다.
+2. Socket 통신부분과 RTC 관련 로직을 모듈로 분리하였습니다.
+3. RTC 모듈 내부에서도, PeerConnection을 담당하는 Manager, Socket 통신을 담당하는 Manager 등을 나누었습니다.
+4. VideoChatRtcManager 클래스를 추가해서 화상채팅도 지원할 수 있도록 기능 확장할 예정입니다.
 
-소켓 통신을 사용해야 하므로 [socket-io 라이브러리](https://github.com/socketio/socket.io-client-java)도 받아옵니다.
-~~~Gradle
-// build.gradle (app)
-implementation ('io.socket:socket.io-client:1.0.0') {  
-  // excluding org.json which is provided by Android  
-  exclude group: 'org.json', module: 'json'  
-}
-~~~
+### Summary
+![image](./art/android-summary-architecture.png)
 
-webrtc를 사용하려면 java 버전을 1.8을 써야 하고, 코틀린을 사용하고 있다면 gradle 파일을 추가로 수정해줘야 합니다.
-~~~Gradle
-// build.gradle (app)
-android {
-	...
-	compileOptions {
-		compileOptions {  
-		  sourceCompatibility JavaVersion.VERSION_1_8  
-		  targetCompatibility JavaVersion.VERSION_1_8  
-		}
-		
-		// 코틀린을 사용하고 있다면 추가  
-		kotlinOptions{  
-		  jvmTarget = '1.8'  
-		}
-	}
-}
-~~~
-
-추가로 Json 파싱이나 소켓 통신에서 발생하는 이벤트를 비동기로 처리해야 하는 경우가 있을 것 같아서, [Gson](https://github.com/google/gson) 과 [RxJava](https://github.com/ReactiveX/RxJava),  [Retrofit](https://github.com/square/retrofit) 라이브러리의 dependency를 추가해 주었습니다.
-~~~Gradle
-implementation 'io.reactivex.rxjava2:rxandroid:2.1.1'  
-implementation "io.reactivex.rxjava2:rxjava:2.2.10"  
-implementation 'com.squareup.retrofit2:converter-gson:2.5.0'  
-implementation 'com.squareup.retrofit2:adapter-rxjava2:2.5.0'  
-implementation 'com.google.code.gson:gson:2.8.5'
-~~~
-
-자세한 사항은 [rtc 모듈의 build.gradle 파일]( 링크추가필요 ) 을 참조하세요.
-
-## 3. Principle
+1. View <-> RTC 모듈 간 통신
+	- 안드로이드 app 모듈에 xml로 선언된 SurfaceViewRenderer를 RTC 모듈에 넘겨줍니다.
+	- 이렇게 넘어간 SurfaceViewRenderer는 RTC의 VideoStream, AudioStream을 구성합니다.
+	- app 모듈에서는 [RtcModuleInterface](https://github.com/skfo763/WebRTC-android-example/blob/master/rtc/src/main/java/com/skfo763/rtc/contracts/RtcModuleInterface.kt)를 통해서 RTC 모듈을 제어합니다.
+	- rtc 모듈에서는 자신의 작업이 완료되었다는 것을 [RtcViewInterface](https://github.com/skfo763/WebRTC-android-example/blob/master/rtc/src/main/java/com/skfo763/rtc/contracts/RtcViewInterface.kt)를 통해 app에 전달합니다.

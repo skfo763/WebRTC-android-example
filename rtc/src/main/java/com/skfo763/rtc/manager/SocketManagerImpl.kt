@@ -3,7 +3,7 @@ package com.skfo763.rtc.manager
 import com.google.gson.Gson
 import com.skfo763.rtc.contracts.PeerSignalCallback
 import com.skfo763.rtc.data.*
-import com.skfo763.socket.contracts.EmitterListener
+import com.skfo763.socket.contracts.SocketEmitterListener
 import com.skfo763.socket.core.SocketHelper
 import com.skfo763.socket.core.SocketListenerEvent
 import org.json.JSONObject
@@ -12,7 +12,7 @@ import org.webrtc.SessionDescription
 import java.net.SocketException
 import java.util.*
 
-class SocketManagerImpl(private val peerSignalCallback: PeerSignalCallback): EmitterListener, SocketManager {
+class SocketManagerImpl(private val peerSignalCallback: PeerSignalCallback): SocketEmitterListener, SocketManager {
 
     companion object {
         private const val TYPE = "type"
