@@ -59,7 +59,7 @@ class VoiceChatRtcManager private constructor(
             desc?.let {
                 socketManager.sendOfferAnswerToSocket(it)
             } ?: kotlin.run {
-                // TODO(세션디스크립션 null 일 때 에러 핸들링 필요)
+                onError(isCritical = false, showMessage = false, message = "Session description data is null")
             }
         }
     }
@@ -70,7 +70,7 @@ class VoiceChatRtcManager private constructor(
             socketManager.sendIceCandidateToSocket(it)
             peerManager.addIceCandidate(it)
         } ?: kotlin.run {
-            // TODO(아이스 캔디데이트 null 일 때 애러 핸들링 필요)
+            onError(isCritical = false, showMessage = false, message = "Ice candidate data is null")
         }
     }
 
