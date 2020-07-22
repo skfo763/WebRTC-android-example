@@ -1,16 +1,15 @@
 package com.skfo763.rtc.manager
 
 import com.skfo763.rtc.data.SignalServerInfo
-import org.webrtc.IceCandidate
-import org.webrtc.SdpObserver
-import org.webrtc.SessionDescription
-import org.webrtc.SurfaceViewRenderer
+import org.webrtc.*
 
 interface PeerManager {
 
     fun initSurfaceView(surfaceViewRenderer: SurfaceViewRenderer)
 
     fun startLocalVideoCapture(localSurfaceView: SurfaceViewRenderer)
+
+    fun startRemoteVideoCapture(remoteSurfaceView: SurfaceViewRenderer, mediaStream: MediaStream?)
 
     fun setIceServer(signalServerInfo: SignalServerInfo)
 

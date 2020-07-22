@@ -13,20 +13,18 @@ class VideoCaptureManagerImpl private constructor(
     companion object {
         @JvmStatic
         fun getVideoCapture(context: Context): VideoCaptureManager {
-            val cameraEnumerator = if(Camera2Enumerator.isSupported(context)) {
+            val videoCapturer = if(Camera2Enumerator.isSupported(context)) {
                 Camera2Enumerator(context)
             } else {
                 Camera1Enumerator(false)
-            }.apply {
+            }.run {
                 deviceNames.find { deviceName ->
                     isFrontFacing(deviceName)
                 }?.let {
                     createCapturer(it, null)
-                } ?: kotlin.run {
-                    Log.e("VideoCaptureManager", VIDEOCAPTURER_NULL)
                 }
             }
-            return VideoCaptureManagerImpl(cameraEnumerator as? VideoCapturer)
+            return VideoCaptureManagerImpl(videoCapturer)
         }
     }
 

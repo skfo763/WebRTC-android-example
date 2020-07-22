@@ -17,7 +17,7 @@ import org.webrtc.SurfaceViewRenderer
 import org.webrtc.audio.AudioDeviceModule
 import java.util.concurrent.atomic.AtomicBoolean
 
-class VoiceChatRtcManager private constructor(
+class FaceChatRtcManager private constructor(
     private val context: Context,
     private val audioDeviceModule: AudioDeviceModule,
     localView: SurfaceViewRenderer,
@@ -26,13 +26,16 @@ class VoiceChatRtcManager private constructor(
 
     companion object {
         @JvmStatic
-        fun initVoiceChatRtcManager(
+        fun initFaceChatRtcManager(
             context: Context,
             audioDeviceModule: AudioDeviceModule,
             localView: SurfaceViewRenderer,
-            remoteView: SurfaceViewRenderer
+            remoteView: SurfaceViewRenderer,
+            rtcViewInterface: RtcViewInterface
         ): RtcModuleInterface {
-            return VoiceChatRtcManager(context, audioDeviceModule, localView, remoteView)
+            return FaceChatRtcManager(context, audioDeviceModule, localView, remoteView).apply {
+                this.rtcViewInterface = rtcViewInterface
+            }
         }
     }
 
@@ -75,31 +78,13 @@ class VoiceChatRtcManager private constructor(
         super.onAddStream(mediaStream)
         audioManager?.audioFocusDucking()
 
-        /*  TODO(remoteSurfaceView 초기화 필요)
-        remoteSurfaceview?.let {
-            var vTracks =  mStream?.videoTracks?.get(0)
-            var aTracks = mStream?.audioTracks?.get(0)
-            vTracks?.run {
-                addSink(it)
-                setEnabled(false)
-            }
-        } ?: kotlin.run {
-            //  TODO : remoteSurfaceview add sink after INITIALIZE
-            // remoteSurfaceView 가 null 이면 해당 뷰를 초기화 해주고 싱크해주기
-            peerManager?.run {
-                remoteSurfaceview = remoteView.apply { initSurfaceView() }
-                var vTracks =  mStream?.videoTracks?.get(0)
-                vTracks?.run{
-                    addSink(remoteSurfaceview)
-                    setEnabled(false)
-                }
-            }
+        remoteSurfaceView?.let {
+            peerManager?.startRemoteVideoCapture(it, mediaStream)
         }
-        */
     }
 
     override fun onPeerError(isCritical: Boolean, showMessage: Boolean, message: String?) {
-        this@VoiceChatRtcManager.onPeerError(isCritical, showMessage, message)
+        this.onPeerError(isCritical, showMessage, message)
     }
 
     override fun setPeerInfo(peer: SignalServerInfo) {

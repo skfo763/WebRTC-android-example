@@ -5,7 +5,7 @@ interface SocketEmitterListener {
 
     fun onConnected(connectData: Array<Any>)
 
-    fun onReconnected()
+    fun onReconnected(reconnectData: Array<Any>)
 
     fun onMatched(match: Array<Any>)
 

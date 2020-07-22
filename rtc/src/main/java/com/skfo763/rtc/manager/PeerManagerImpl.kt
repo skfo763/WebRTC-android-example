@@ -1,13 +1,15 @@
 package com.skfo763.rtc.manager
 
 import android.content.Context
+import android.util.Log
 import com.skfo763.rtc.data.*
+import com.skfo763.rtc.inobs.PeerConnectionObserver
 import org.webrtc.*
 import org.webrtc.audio.AudioDeviceModule
 
 class PeerManagerImpl(
     context: Context,
-    observer: PeerConnection.Observer,
+    private val observer: PeerConnectionObserver,
     private val audioModule: AudioDeviceModule
 ) : PeerManager {
 
@@ -43,22 +45,44 @@ class PeerManagerImpl(
 
     override fun startLocalVideoCapture(localSurfaceView: SurfaceViewRenderer) {
         surfaceTextureHelper = SurfaceTextureHelper.create(Thread.currentThread().name, rootEglBase.eglBaseContext)
-        localVideoTrack = peerConnectionFactory.createVideoTrack(VIDEO_TRACK_ID, localVideoSource)
-        localAudioTrack = peerConnectionFactory.createAudioTrack(AUDIO_TRACK_ID, localAudioSource)
-        localStream = peerConnectionFactory.createLocalMediaStream(LOCAL_STREAM_ID)
 
+        // video capturer initialize
         videoCaptureManager.videoCapturer?.let {
             it.initialize(surfaceTextureHelper, localSurfaceView.context, localVideoSource.capturerObserver)
-            it.startCapture(240, 240, 60)
+            it.startCapture(320, 240, 60)
         }
+
+        // video track initialize
+        localVideoTrack = peerConnectionFactory.createVideoTrack(VIDEO_TRACK_ID, localVideoSource)
         localVideoTrack?.addSink(localSurfaceView)
+        localVideoTrack?.setEnabled(true)
+
+        // audio track initialize
+        localAudioTrack = peerConnectionFactory.createAudioTrack(AUDIO_TRACK_ID, localAudioSource)
         localAudioTrack?.setEnabled(true)
+
+        // add media stream to surface view
+        localStream = peerConnectionFactory.createLocalMediaStream(LOCAL_STREAM_ID)
+        localStream?.addTrack(localVideoTrack)
         localStream?.addTrack(localAudioTrack)
 
         peerConnection?.addStream(localStream) ?: run {
-            // TODO(에러 핸들링)
+            observer.onPeerError(true, false, PEER_CREATE_ERROR)
         }
     }
+
+    override fun startRemoteVideoCapture(
+        remoteSurfaceView: SurfaceViewRenderer,
+        mediaStream: MediaStream?
+    ) {
+        mediaStream?.let {
+            val videoTrack = it.videoTracks?.getOrNull(0) ?: return
+            val audioTrack = it.audioTracks?.getOrNull(0) ?: return
+            videoTrack.addSink(remoteSurfaceView)
+            videoTrack.setEnabled(true)
+        }
+    }
+
 
     override fun setIceServer(signalServerInfo: SignalServerInfo) {
         iceServer.clear()
@@ -131,7 +155,7 @@ class PeerManagerImpl(
         }
 
         return peerConnectionFactory.createPeerConnection(rtcConfig, this) ?: kotlin.run {
-            // TODO(에러 핸들링)
+            observer.onPeerError(isCritical = true, showMessage = false, message = PEER_CREATE_ERROR)
             null
         }
     }
@@ -141,7 +165,7 @@ class PeerManagerImpl(
             override fun onCreateSuccess(desc: SessionDescription?) {
                 peerConnection?.setLocalDescription( object : SdpObserver {
                     override fun onSetFailure(p0: String?) {
-                        // TODO(에러 핸들링)
+                        observer.onPeerError(true, showMessage = false, message = p0)
                     }
                     override fun onSetSuccess() {
 
@@ -150,7 +174,7 @@ class PeerManagerImpl(
 
                     }
                     override fun onCreateFailure(p0: String?) {
-                        // TODO(에러 핸들링)
+                        observer.onPeerError(true, showMessage = false, message = p0)
                     }
                 }, desc)
                 sdpObserver.onCreateSuccess(desc)
@@ -163,7 +187,7 @@ class PeerManagerImpl(
             override fun onCreateSuccess(desc: SessionDescription?) {
                 peerConnection?.setLocalDescription( object: SdpObserver {
                     override fun onSetFailure(p0: String?) {
-                        // TODO(에러 핸들링)
+                        observer.onPeerError(true, showMessage = false, message = p0)
                     }
                     override fun onSetSuccess() {
 
@@ -172,7 +196,7 @@ class PeerManagerImpl(
 
                     }
                     override fun onCreateFailure(p0: String?) {
-                        // TODO(에러 핸들링)
+                        observer.onPeerError(true, showMessage = false, message = p0)
                     }
                 }, desc)
                 sdpObserver.onCreateSuccess(desc)

@@ -4,37 +4,48 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".main.MainActivity">
+    tools:context=".view.MainActivity">
 
-    <com.skfo763.rtc.views.CustomSurfaceViewRenderer
+    <org.webrtc.SurfaceViewRenderer
         android:id="@+id/remote_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:visibility="visible"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <com.skfo763.rtc.views.CustomSurfaceViewRenderer
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/iv_back_blur"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:alpha="0.6"
+        android:background="#000000"
+        android:visibility="visible"/>
+
+    <org.webrtc.SurfaceViewRenderer
         android:id="@+id/local_view"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@id/guideline2"
-        app:layout_constraintStart_toStartOf="@id/guideline1"
-        android:layout_marginRight="16dp"
-        android:layout_marginBottom="16dp"/>
+        android:layout_marginTop="16dp"
+        android:layout_marginLeft="16dp"
+        android:visibility="visible"
+        app:layout_constraintBottom_toTopOf="@+id/guideline2"
+        app:layout_constraintEnd_toStartOf="@+id/guideline1"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <androidx.constraintlayout.widget.Guideline
-        app:layout_constraintGuide_percent="0.6"
+        app:layout_constraintGuide_percent="0.4"
         android:id="@+id/guideline1"
         android:orientation="vertical"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
 
     <androidx.constraintlayout.widget.Guideline
-        app:layout_constraintGuide_percent="0.6"
+        app:layout_constraintGuide_percent="0.36"
         android:id="@+id/guideline2"
         android:orientation="horizontal"
         android:layout_width="wrap_content"
@@ -45,6 +56,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:indeterminate="true"
+        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="@id/remote_view"
         app:layout_constraintEnd_toEndOf="@id/remote_view"
         app:layout_constraintStart_toStartOf="@id/remote_view"

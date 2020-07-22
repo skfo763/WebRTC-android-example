@@ -5,17 +5,12 @@ import org.webrtc.SurfaceViewRenderer
 
 interface RtcModuleInterface {
 
-    fun setLocalSurfaceView(local: SurfaceViewRenderer)
+    var rtcViewInterface: RtcViewInterface
 
-    fun setRemoteSurfaceView(remote: SurfaceViewRenderer)
-
-    /**
-     * 이 메소드는 반드시 local, remote surface 뷰가 세팅되고 난 다음에 호출되어야 합니다.
-     */
     fun setPeerInfo(peer : SignalServerInfo)
 
     fun startWaiting(peer: SignalServerInfo)
 
-    fun stopCallSignFromClient(stoppedAt: StopCallType)
+    fun stopCallSignFromClient(stoppedAt: StopCallType, shouldCloseSocket: Boolean)
 
 }

@@ -6,6 +6,7 @@ import io.socket.client.IO
 import io.socket.client.Socket
 import io.socket.emitter.Emitter
 import okhttp3.OkHttpClient
+import java.lang.Exception
 import java.security.cert.X509Certificate
 import java.util.concurrent.atomic.AtomicInteger
 import javax.net.ssl.SSLContext
@@ -27,7 +28,7 @@ class SocketHelper(listener: SocketEmitterListener) {
     }
 
     private val reconnectListener = Emitter.Listener {
-        listener.onReconnected()
+        listener.onReconnected(it)
     }
 
     private val matchListener = Emitter.Listener {
@@ -40,12 +41,12 @@ class SocketHelper(listener: SocketEmitterListener) {
 
     private val connectErrorListener = Emitter.Listener {
         val connectCount = retryConnectionCount.get()
-        if(connectCount >= RECONNECTION_ATTEMPTS) {
+        if(connectCount >= RECONNECTION_ATTEMPTS - 1) {
             listener.onConnectError(connectCount)
             retryConnectionCount.set(0)
         } else {
-            listener.onErrorRetry(connectCount)
             retryConnectionCount.set(connectCount + 1)
+            listener.onErrorRetry(connectCount + 1)
         }
     }
 
@@ -57,6 +58,7 @@ class SocketHelper(listener: SocketEmitterListener) {
         listener.onTerminate(it)
     }
 
+    // 로컬 테스트 시 ssl 인증 우회하기 위해 필요합니다. 자체 ssl 인증 서버가 있으면 안써도 됩니다.
     private fun getOkHttpClient(): OkHttpClient {
         val trustAllCerts = arrayOf<TrustManager>(object: X509TrustManager {
             override fun checkClientTrusted(p0: Array<out X509Certificate>?, p1: String?) = Unit
@@ -74,16 +76,17 @@ class SocketHelper(listener: SocketEmitterListener) {
             .build()
     }
 
-    private fun getSocketOptions(okHttpClient: OkHttpClient) = IO.Options().apply {
-        callFactory = okHttpClient
-        webSocketFactory = okHttpClient
+    private fun getSocketOptions(okHttpClient: OkHttpClient? = null) = IO.Options().apply {
+        okHttpClient?.let {
+            callFactory = it
+            webSocketFactory = it
+        }
         reconnection = RECONNECTION
         randomizationFactor = RANDOMIZATION_FACTOR
         reconnectionAttempts = RECONNECTION_ATTEMPTS
         reconnectionDelay = RECONNECTION_DELAY
         reconnectionDelayMax = RECONNECTION_DELAY_MAX
     }
-
 
     fun initializeSocket(url: String) {
         if(socket == null) {
@@ -92,15 +95,20 @@ class SocketHelper(listener: SocketEmitterListener) {
                 connectListener()
                 connect()
             }
+            println("isConnected? : ${socket?.connected()}")
         }
     }
 
-    fun sendSocket(event: String, vararg data: Any, onCall: ((args: Array<Any?>) -> Unit)? = null) {
+    fun sendSocket(event: String, vararg data: String, onCall: ((args: Array<Any?>) -> Unit)? = null) {
         onCall?.let { function ->
             socket?.emit(event, data) { function.invoke(it) }
         } ?: kotlin.run {
             socket?.emit(event, data)
         }
+    }
+
+    fun sendSocket(event: SocketListenerEvent, data: Any) {
+        socket?.emit(event.value, data)
     }
 
     fun sendSocket(event: SocketListenerEvent, vararg data: Any, onCall: ((args: Array<Any?>) -> Unit)? = null) {
@@ -113,6 +121,7 @@ class SocketHelper(listener: SocketEmitterListener) {
 
     fun releaseSocket() {
         socket?.disconnectListener()
+        socket?.disconnect()
         socket = null
     }
 

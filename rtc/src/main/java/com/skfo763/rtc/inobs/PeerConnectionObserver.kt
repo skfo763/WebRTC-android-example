@@ -2,7 +2,7 @@ package com.skfo763.rtc.inobs
 
 import org.webrtc.*
 
-open class PeerConnectionObserver: PeerConnection.Observer {
+abstract class PeerConnectionObserver: PeerConnection.Observer {
     override fun onIceCandidate(iceCandidate: IceCandidate?) {
         
     }
@@ -24,7 +24,7 @@ open class PeerConnectionObserver: PeerConnection.Observer {
     }
 
     override fun onAddStream(mediaStream: MediaStream?) {
-        
+
     }
 
     override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
@@ -46,5 +46,7 @@ open class PeerConnectionObserver: PeerConnection.Observer {
     override fun onAddTrack(p0: RtpReceiver?, p1: Array<out MediaStream>?) {
         
     }
+
+    abstract fun onPeerError(isCritical: Boolean, showMessage: Boolean = false, message: String? = null)
 
 }

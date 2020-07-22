@@ -1,11 +1,16 @@
 package com.skfo763.rtc.manager
 
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import com.google.gson.Gson
 import com.skfo763.rtc.contracts.PeerSignalCallback
+import com.skfo763.rtc.contracts.StopCallType
 import com.skfo763.rtc.data.*
 import com.skfo763.socket.contracts.SocketEmitterListener
 import com.skfo763.socket.core.SocketHelper
 import com.skfo763.socket.core.SocketListenerEvent
+import org.json.JSONException
 import org.json.JSONObject
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
@@ -22,7 +27,9 @@ class SocketManagerImpl(private val peerSignalCallback: PeerSignalCallback): Soc
     private val gson = Gson()
 
     override fun initializeSocket(url: String) {
-        helper.initializeSocket(url)
+        Handler(Looper.getMainLooper()).post {
+            helper.initializeSocket(url)
+        }
     }
 
     override fun sendJoinToSocket(userInfo: JSONObject) {
@@ -38,6 +45,8 @@ class SocketManagerImpl(private val peerSignalCallback: PeerSignalCallback): Soc
                 }
             } catch (e: SocketException) {
                 peerSignalCallback.onError(false, message = e.message)
+            } catch (e: JSONException) {
+                e.printStackTrace()
             }
         }
     }
@@ -47,14 +56,14 @@ class SocketManagerImpl(private val peerSignalCallback: PeerSignalCallback): Soc
             val jsonSessionDescription = gson.toJson(sessionDescription)
             val sendData = JSONObject()
             when {
-                jsonSessionDescription.toLowerCase(Locale.getDefault()).contains(OFFER) -> {
+                jsonSessionDescription.toLowerCase(Locale.ROOT).contains(OFFER) -> {
                     sendData.apply {
                         put(TYPE, OFFER)
                         put(SDP, sessionDescription.description)
                     }
                     helper.sendSocket(SocketListenerEvent.EVENT_MESSAGE, sendData)
                 }
-                jsonSessionDescription.toLowerCase(Locale.getDefault()).contains(ANSWER) -> {
+                jsonSessionDescription.toLowerCase(Locale.ROOT).contains(ANSWER) -> {
                     sendData.apply {
                         put(TYPE, ANSWER)
                         put(SDP, sessionDescription.description)
@@ -84,7 +93,10 @@ class SocketManagerImpl(private val peerSignalCallback: PeerSignalCallback): Soc
         }
     }
 
-    override fun sendHangUpEventToSocket(data: Any) {
+    override fun sendHangUpEventToSocket(
+        data: Any,
+        stoppedAt: StopCallType
+    ) {
         try {
             val jsonData = gson.toJson(data)
             if(data == HANGUP || jsonData == HANGUP) {
@@ -93,9 +105,9 @@ class SocketManagerImpl(private val peerSignalCallback: PeerSignalCallback): Soc
                     peerSignalCallback.onHangUp(ackJson)
 
                     if(ackJson.getBoolean("success")) {
-                        peerSignalCallback.onHangUpSuccess()
+                        peerSignalCallback.onHangUpSuccess(stoppedAt)
                     } else {
-                        peerSignalCallback.onError(false, message = "Hangup status is false")
+                        peerSignalCallback.onError(true, message = HANGUP_FALSE)
                     }
                 }
             } else {
@@ -115,28 +127,32 @@ class SocketManagerImpl(private val peerSignalCallback: PeerSignalCallback): Soc
     }
 
     override fun onMessageReceived(message: Any?) {
-        val data = JSONObject("${message ?: return}")
-        when(data[TYPE]) {
-            OFFER -> {
-                peerSignalCallback.onOfferReceived(
-                    SessionDescription(SessionDescription.Type.OFFER, "${data[SDP]}"))
-            }
-            ANSWER -> {
-                peerSignalCallback.onAnswerReceived(
-                    SessionDescription(SessionDescription.Type.ANSWER, "${data[SDP]}"))
-            }
-            CANDIDATE -> {
-                peerSignalCallback.onIceCandidateReceived(
-                    IceCandidate(
-                        data[ID].toString(),
-                        data.getInt(LABEL),
-                        data[CANDIDATE].toString()
+        try {
+            val data = JSONObject(message.toString())
+            when(data[TYPE]) {
+                OFFER -> {
+                    peerSignalCallback.onOfferReceived(
+                            SessionDescription(SessionDescription.Type.OFFER, "${data[SDP]}"))
+                }
+                ANSWER -> {
+                    peerSignalCallback.onAnswerReceived(
+                            SessionDescription(SessionDescription.Type.ANSWER, "${data[SDP]}"))
+                }
+                CANDIDATE -> {
+                    peerSignalCallback.onIceCandidateReceived(
+                            IceCandidate(
+                                    data[ID].toString(),
+                                    data.getInt(LABEL),
+                                    data[CANDIDATE].toString()
+                            )
                     )
-                )
+                }
+                else -> {
+                    peerSignalCallback.onError(false, message = "unsupported socket message")
+                }
             }
-            else -> {
-                peerSignalCallback.onError(false, message = "unsupported socket message")
-            }
+        } catch (e: java.lang.Exception){
+            e.printStackTrace()
         }
     }
 
@@ -144,8 +160,8 @@ class SocketManagerImpl(private val peerSignalCallback: PeerSignalCallback): Soc
         peerSignalCallback.onConnected(connectData)
     }
 
-    override fun onReconnected() {
-        // TODO(리커낵트 이벤트)
+    override fun onReconnected(reconnectData: Array<Any>) {
+        peerSignalCallback.onError(false, showMessage = false, message = "${reconnectData[0]}")
     }
 
     override fun onMatched(match: Array<Any>) {
@@ -153,12 +169,6 @@ class SocketManagerImpl(private val peerSignalCallback: PeerSignalCallback): Soc
             try {
                 val matchData = JSONObject("$it")
                 peerSignalCallback.onMatched(matchData)
-
-                if(matchData.getBoolean(OFFER)) {
-                    peerSignalCallback.createMatchingOffer()
-                } else {
-                    peerSignalCallback.createMatchingAnswer()
-                }
             } catch (e: java.lang.Exception) {
                 peerSignalCallback.onError(true, message = e.message)
             }
@@ -167,12 +177,12 @@ class SocketManagerImpl(private val peerSignalCallback: PeerSignalCallback): Soc
 
     override fun onDisconnected(disconnect: Any?) {
         if(disconnect != null && disconnect == SERVER_DISCONNECT) {
-            peerSignalCallback.onError(true, message = "Server disconnection is occurred")
+            peerSignalCallback.onError(true, message = SERVER_DISCONNECT)
         }
     }
 
     override fun onConnectError(retryCount: Int) {
-        peerSignalCallback.onError(true, message = "Connection is failed after $retryCount times retry")
+        peerSignalCallback.onError(true, message = RETRY_CONNECT_FAILED_COUNT_OVER)
     }
 
     override fun onErrorRetry(retryCount: Int) {

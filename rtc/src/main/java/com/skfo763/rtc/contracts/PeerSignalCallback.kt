@@ -22,7 +22,7 @@ interface PeerSignalCallback {
 
     fun onHangUp(data: JSONObject)
 
-    fun onHangUpSuccess()
+    fun onHangUpSuccess(stoppedAt: StopCallType)
 
     fun onTerminate(terminateState: String)
 

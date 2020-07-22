@@ -25,3 +25,4 @@ const val PASSWORD = "password"
 // terminate, disconnect 상태에서 받을 데이터 키값
 const val TERMINATED_CASE = "terminationCase"
 const val SERVER_DISCONNECT = "io server disconnect"
+const val RETRY_CONNECT_FAILED_COUNT_OVER = "retry connection over"
