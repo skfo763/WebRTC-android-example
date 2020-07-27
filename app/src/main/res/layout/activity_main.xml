@@ -6,63 +6,13 @@
     android:layout_height="match_parent"
     tools:context=".view.MainActivity">
 
-    <org.webrtc.SurfaceViewRenderer
-        android:id="@+id/remote_view"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="visible"
+    <FrameLayout
+        android:id="@+id/frameLayout"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
-
-    <androidx.appcompat.widget.AppCompatImageView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:scaleType="centerCrop"
-        android:alpha="0.93"
-      
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:srcCompat="@drawable/blur_background"/>
-    
-    <org.webrtc.SurfaceViewRenderer
-        android:id="@+id/local_view"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginTop="16dp"
-        android:layout_marginLeft="16dp"
-        android:visibility="visible"
-        app:layout_constraintBottom_toTopOf="@+id/guideline2"
-        app:layout_constraintEnd_toStartOf="@+id/guideline1"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <androidx.constraintlayout.widget.Guideline
-        app:layout_constraintGuide_percent="0.4"
-        android:id="@+id/guideline1"
-        android:orientation="vertical"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content" />
-
-    <androidx.constraintlayout.widget.Guideline
-        app:layout_constraintGuide_percent="0.36"
-        android:id="@+id/guideline2"
-        android:orientation="horizontal"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content" />
-
-    <ProgressBar
-        android:id="@+id/remote_view_loading"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:indeterminate="true"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="@id/remote_view"
-        app:layout_constraintEnd_toEndOf="@id/remote_view"
-        app:layout_constraintStart_toStartOf="@id/remote_view"
-        app:layout_constraintTop_toTopOf="@id/remote_view" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

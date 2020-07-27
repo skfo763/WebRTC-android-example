@@ -172,7 +172,7 @@ abstract class PeerManager(context: Context, private val observer: PeerConnectio
         // for video peer manager
     }
 
-    open fun startRemoteVideoCapture(localSurfaceView: SurfaceViewRenderer) {
+    open fun startRemoteVideoCapture(remoteSurfaceView: SurfaceViewRenderer, mediaStream: MediaStream) {
         // for video peer manager
     }
 

@@ -1,8 +1,10 @@
 package com.skfo763.rtc.manager
 
 import android.content.Context
+import com.skfo763.rtc.data.PEER_CREATE_ERROR
 import com.skfo763.rtc.data.VIDEO_TRACK_ID
 import com.skfo763.rtc.inobs.PeerConnectionObserver
+import org.webrtc.MediaStream
 import org.webrtc.PeerConnectionFactory
 import org.webrtc.SurfaceTextureHelper
 import org.webrtc.SurfaceViewRenderer
@@ -38,11 +40,23 @@ class VideoPeerManager(context: Context, private val observer: PeerConnectionObs
             it.startCapture(240, 240, 60)
         }
         localVideoTrack.addSink(localSurfaceView)
+        localVideoTrack.setEnabled(true)
         startLocalVoice()
     }
 
-    override fun startRemoteVideoCapture(localSurfaceView: SurfaceViewRenderer) {
+    override fun startRemoteVideoCapture(
+        remoteSurfaceView: SurfaceViewRenderer,
+        mediaStream: MediaStream
+    ) {
+        super.startRemoteVideoCapture(remoteSurfaceView, mediaStream)
+        val videoTrack = mediaStream.videoTracks.getOrNull(0)
+        val audioTrack = mediaStream.videoTracks.getOrNull(0)
 
+        if(videoTrack == null || audioTrack == null) {
+            observer.onPeerError(true, showMessage = false, message = PEER_CREATE_ERROR)
+        }
+        videoTrack?.addSink(remoteSurfaceView)
+        videoTrack?.setEnabled(true)
     }
 
     override fun disconnectPeer() {
