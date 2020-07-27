@@ -2,6 +2,7 @@ package com.skfo763.rtcandroid_example.view
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.Point
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -50,6 +51,11 @@ class MainActivity : AppCompatActivity(), RtcViewInterface {
         requestPermission(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA)
     }
 
+    override fun onResume() {
+        super.onResume()
+        println("${remote_view.width}, ${remote_view.height}")
+    }
+
     private fun requestPermission(vararg permissions: String) {
         ActivityCompat.requestPermissions(this, permissions, REQUEST_CODE_PERMISSION)
     }
@@ -60,7 +66,9 @@ class MainActivity : AppCompatActivity(), RtcViewInterface {
 
     override fun onUiEvent(uiEvent: VoiceChatUiEvent) {
         when(uiEvent) {
-            VoiceChatUiEvent.START_CALL -> remote_view_loading.visibility = View.GONE
+            VoiceChatUiEvent.START_CALL -> {
+                remote_view_loading.visibility = View.GONE
+            }
             VoiceChatUiEvent.STOP_PROCESS_COMPLETE -> finish()
             VoiceChatUiEvent.FINISH -> finish()
             else -> return

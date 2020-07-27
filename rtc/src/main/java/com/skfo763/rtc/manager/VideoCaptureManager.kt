@@ -6,6 +6,6 @@ interface VideoCaptureManager {
 
     val videoCapturer: VideoCapturer?
 
-    fun releaseVideoCapture(doOnError: ((e: Exception) -> Unit)? = null)
+    fun stopVideoCapture(doOnError: ((e: Exception) -> Unit)? = null)
 
 }

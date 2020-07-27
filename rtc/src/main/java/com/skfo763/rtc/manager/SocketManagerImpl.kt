@@ -2,7 +2,6 @@ package com.skfo763.rtc.manager
 
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import com.google.gson.Gson
 import com.skfo763.rtc.contracts.PeerSignalCallback
 import com.skfo763.rtc.contracts.StopCallType

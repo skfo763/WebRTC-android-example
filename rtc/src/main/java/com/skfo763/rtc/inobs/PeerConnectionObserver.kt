@@ -24,7 +24,7 @@ abstract class PeerConnectionObserver: PeerConnection.Observer {
     }
 
     override fun onAddStream(mediaStream: MediaStream?) {
-
+        
     }
 
     override fun onSignalingChange(p0: PeerConnection.SignalingState?) {

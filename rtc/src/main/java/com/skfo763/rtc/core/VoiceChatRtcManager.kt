@@ -14,25 +14,22 @@ import org.webrtc.IceCandidate
 import org.webrtc.MediaStream
 import org.webrtc.SessionDescription
 import org.webrtc.SurfaceViewRenderer
-import org.webrtc.audio.AudioDeviceModule
 import java.util.concurrent.atomic.AtomicBoolean
 
 class VoiceChatRtcManager private constructor(
     private val context: Context,
-    private val audioDeviceModule: AudioDeviceModule,
     localView: SurfaceViewRenderer,
     remoteView: SurfaceViewRenderer
-) : PeerConnectionObserver(), PeerSignalCallback, RtcModuleInterface {
+) : PeerConnectionObserver(), PeerSignalCallback {
 
     companion object {
         @JvmStatic
-        fun initVoiceChatRtcManager(
+        fun createVoiceChatRtcManager(
             context: Context,
-            audioDeviceModule: AudioDeviceModule,
             localView: SurfaceViewRenderer,
             remoteView: SurfaceViewRenderer
-        ): RtcModuleInterface {
-            return VoiceChatRtcManager(context, audioDeviceModule, localView, remoteView)
+        ): VoiceChatRtcManager {
+            return VoiceChatRtcManager(context, localView, remoteView)
         }
     }
 
@@ -43,12 +40,12 @@ class VoiceChatRtcManager private constructor(
 
     private var socketManager: SocketManager? = null
     private var peerManager: PeerManager? = null
-    private var audioManager: MAudioManager? = null
+    private val audioManager :MAudioManager by lazy { MAudioManagerImpl(context) }
 
     private var localSurfaceView: SurfaceViewRenderer? = localView
     private var remoteSurfaceView: SurfaceViewRenderer? = remoteView
 
-    override lateinit var rtcViewInterface: RtcViewInterface
+    lateinit var iVoiceChatViewModelListener: IVoiceChatViewModelListener
 
     private val appSdpObserver = object: AppSdpObserver() {
         override fun onCreateSuccess(desc: SessionDescription?) {
@@ -74,74 +71,44 @@ class VoiceChatRtcManager private constructor(
     override fun onAddStream(mediaStream: MediaStream?) {
         super.onAddStream(mediaStream)
         audioManager?.audioFocusDucking()
-
-        /*  TODO(remoteSurfaceView 초기화 필요)
-        remoteSurfaceview?.let {
-            var vTracks =  mStream?.videoTracks?.get(0)
-            var aTracks = mStream?.audioTracks?.get(0)
-            vTracks?.run {
-                addSink(it)
-                setEnabled(false)
-            }
-        } ?: kotlin.run {
-            //  TODO : remoteSurfaceview add sink after INITIALIZE
-            // remoteSurfaceView 가 null 이면 해당 뷰를 초기화 해주고 싱크해주기
-            peerManager?.run {
-                remoteSurfaceview = remoteView.apply { initSurfaceView() }
-                var vTracks =  mStream?.videoTracks?.get(0)
-                vTracks?.run{
-                    addSink(remoteSurfaceview)
-                    setEnabled(false)
-                }
-            }
-        }
-        */
     }
 
     override fun onPeerError(isCritical: Boolean, showMessage: Boolean, message: String?) {
-        this@VoiceChatRtcManager.onPeerError(isCritical, showMessage, message)
+        this@VoiceChatRtcManager.onError(isCritical, showMessage, message)
     }
 
-    override fun setPeerInfo(peer: SignalServerInfo) {
-        peerManager = PeerManagerImpl(context, this, audioDeviceModule)
+    fun setPeerInfo(peer: SignalServerInfo) {
+        peerManager = VoicePeerManager(context, this)
         peerManager?.setIceServer(peer)
-
-        localSurfaceView?.let {
-            peerManager?.initSurfaceView(it)
-            peerManager?.startLocalVideoCapture(it)
-        }
-
-        remoteSurfaceView?.let {
-            peerManager?.initSurfaceView(it)
-        }
+        peerManager?.startLocalVoice()
     }
 
-    override fun startWaiting(peer: SignalServerInfo) {
+    fun startWaiting(peer: SignalServerInfo) {
         socketManager = SocketManagerImpl(this)
         socketManager?.initializeSocket(peer.signalServerHost)
     }
 
-    override fun stopCallSignFromClient(stoppedAt: StopCallType, shouldCloseSocket: Boolean) {
+    fun stopCallSignFromClient(stoppedAt: StopCallType, shouldCloseSocket: Boolean) {
         when(stoppedAt) {
             StopCallType.POWER_DESTROY -> releasePeerAndSocket()
             StopCallType.GO_TO_STORE -> socketManager?.sendHangUpEventToSocket(HANGUP, stoppedAt)
             StopCallType.AT_FRAGMENT -> {
                 if(!shouldCloseSocket && isStart.get()) socketManager?.sendHangUpEventToSocket(HANGUP, stoppedAt)
                 else releasePeerAndSocket {
-                    rtcViewInterface.onUiEvent(VoiceChatUiEvent.STOP_PROCESS_COMPLETE)
+                    iVoiceChatViewModelListener.onUiEvent(VoiceChatUiEvent.STOP_PROCESS_COMPLETE)
                 }
             }
             StopCallType.QUIT_ACTIVITY -> {
                 if(!shouldCloseSocket && isStart.get()) socketManager?.sendHangUpEventToSocket(HANGUP, stoppedAt)
                 else releasePeerAndSocket {
-                    rtcViewInterface.onUiEvent(VoiceChatUiEvent.FINISH)
+                    iVoiceChatViewModelListener.onUiEvent(VoiceChatUiEvent.FINISH)
                 }
             }
         }
     }
 
     override fun onConnected(connectData: Array<Any>) {
-        val userInfo = rtcViewInterface.callUserInfo()
+        val userInfo = iVoiceChatViewModelListener.callUserInfo()
         val authInfo = JSONObject().apply {
             put(TOKEN, userInfo.token)
             put(PASSWORD, userInfo.password)
@@ -157,14 +124,14 @@ class VoiceChatRtcManager private constructor(
     override fun createMatchingOffer() {
         isStart.set(true)
         peerManager?.callOffer(appSdpObserver)
-        rtcViewInterface.onUiEvent(VoiceChatUiEvent.START_CALL)
+        iVoiceChatViewModelListener.onUiEvent(VoiceChatUiEvent.START_CALL)
         socketManager?.sendCommonEventToSocket(CALL_STARTED)
     }
 
     override fun createMatchingAnswer() {
         isStart.set(true)
         peerManager?.callAnswer(appSdpObserver)
-        rtcViewInterface.onUiEvent(VoiceChatUiEvent.START_CALL)
+        iVoiceChatViewModelListener.onUiEvent(VoiceChatUiEvent.START_CALL)
         socketManager?.sendCommonEventToSocket(CALL_STARTED)
     }
 
@@ -188,7 +155,7 @@ class VoiceChatRtcManager private constructor(
             val isOffer = data.getBoolean(OFFER)
             val otherIdx = data.getInt(OTHER_IDX)
             val duration = data.getInt(DURATION_SECOND)
-            rtcViewInterface.sendTimerAndIdx(duration, otherIdx)
+            iVoiceChatViewModelListener.sendTimerAndIdx(duration, otherIdx)
             this.otherUserIdx = otherIdx
 
             if(isOffer) createMatchingOffer()
@@ -201,7 +168,7 @@ class VoiceChatRtcManager private constructor(
     override fun onHangUp(data: JSONObject) {
         val displayRating = data.optBoolean(DISPLAY_RATING)
         val matchIdx = data.optInt(MATCH_IDX)
-        rtcViewInterface.sendFinishInfo(displayRating, matchIdx)
+        iVoiceChatViewModelListener.sendFinishInfo(displayRating, matchIdx)
     }
 
     override fun onHangUpSuccess(stoppedAt: StopCallType) {
@@ -211,7 +178,7 @@ class VoiceChatRtcManager private constructor(
             else -> VoiceChatUiEvent.STOP_PROCESS_COMPLETE
         }
         releasePeerAndSocket {
-            rtcViewInterface.onUiEvent(uiEvent)
+            iVoiceChatViewModelListener.onUiEvent(uiEvent)
         }
     }
 
@@ -219,31 +186,31 @@ class VoiceChatRtcManager private constructor(
         when(terminateState) {
             TIMEOUT, DISCONNECTION, HANGUP -> {
                 releasePeerAndSocket {
-                    rtcViewInterface.onUiEvent(VoiceChatUiEvent.STOP_PROCESS_COMPLETE)
+                    iVoiceChatViewModelListener.onUiEvent(VoiceChatUiEvent.STOP_PROCESS_COMPLETE)
                 }
             }
             QUICK_REFUND -> {
                 releasePeerAndSocket {
-                    rtcViewInterface.onUiEvent(VoiceChatUiEvent.STOP_PROCESS_COMPLETE)
-                    rtcViewInterface.onUiEvent(VoiceChatUiEvent.QUICK_REFUND)
+                    iVoiceChatViewModelListener.onUiEvent(VoiceChatUiEvent.STOP_PROCESS_COMPLETE)
+                    iVoiceChatViewModelListener.onUiEvent(VoiceChatUiEvent.QUICK_REFUND)
                 }
             }
             else ->  {
-                rtcViewInterface.onError(ErrorHandleData(true, "", true))
+                iVoiceChatViewModelListener.onError(ErrorHandleData(true, "", true))
             }
         }
     }
 
     override fun onError(isCritical: Boolean, showMessage: Boolean, message: String?) {
         if(isCritical) {
-            rtcViewInterface.onError(ErrorHandleData(true, message ?: "", showMessage))
+            iVoiceChatViewModelListener.onError(ErrorHandleData(true, message ?: "", showMessage))
         }
         Log.d("RTC-Android", "message = $message, showMessage = $showMessage")
     }
 
     override fun onWaitingStatusReceived(data: JSONObject) {
         val waitingText = data.getString(WAITING_TEXT)
-        rtcViewInterface.updateWaitInfo(waitingText)
+        iVoiceChatViewModelListener.updateWaitInfo(waitingText)
     }
 
     private fun releasePeerAndSocket(doAfterRelease: (() -> Unit)? = null) {

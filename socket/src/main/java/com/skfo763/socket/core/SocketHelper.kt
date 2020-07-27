@@ -6,7 +6,6 @@ import io.socket.client.IO
 import io.socket.client.Socket
 import io.socket.emitter.Emitter
 import okhttp3.OkHttpClient
-import java.lang.Exception
 import java.security.cert.X509Certificate
 import java.util.concurrent.atomic.AtomicInteger
 import javax.net.ssl.SSLContext
@@ -90,12 +89,11 @@ class SocketHelper(listener: SocketEmitterListener) {
 
     fun initializeSocket(url: String) {
         if(socket == null) {
-            val socketOptions = getSocketOptions(getOkHttpClient())
+            val socketOptions = getSocketOptions()
             socket = IO.socket(url, socketOptions).apply {
                 connectListener()
                 connect()
             }
-            println("isConnected? : ${socket?.connected()}")
         }
     }
 
