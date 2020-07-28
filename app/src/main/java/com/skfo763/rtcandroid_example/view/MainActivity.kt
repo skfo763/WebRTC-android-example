@@ -85,8 +85,8 @@ class MainActivity : AppCompatActivity(), IFaceChatViewModelListener {
         viewPager2.apply {
             orientation = ViewPager2.ORIENTATION_HORIZONTAL
             adapter = PagerAdapter(this@MainActivity, fragmentList)
-            setCurrentItem(TYPE_WAITING, false)
             registerOnPageChangeCallback(pageChangeCallback)
+            setCurrentItem(TYPE_WAITING, false)
         }
     }
 
@@ -105,9 +105,11 @@ class MainActivity : AppCompatActivity(), IFaceChatViewModelListener {
     }
 
     override fun onUiEvent(uiEvent: VoiceChatUiEvent) {
-        when(uiEvent) {
-            VoiceChatUiEvent.START_CALL -> {
-                viewPager2.setCurrentItem(TYPE_CALLING, false)
+        runOnUiThread {
+            when(uiEvent) {
+                VoiceChatUiEvent.START_CALL -> {
+                    viewPager2.setCurrentItem(TYPE_CALLING, false)
+                }
             }
         }
     }

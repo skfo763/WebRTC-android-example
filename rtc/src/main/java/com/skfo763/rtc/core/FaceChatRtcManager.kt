@@ -41,11 +41,16 @@ class FaceChatRtcManager private constructor(
     private var peerManager: VideoPeerManager? = null
     private val audioManager :MAudioManager by lazy { MAudioManagerImpl(context) }
 
-    private val localViewList = mutableListOf<SurfaceViewRenderer>()
+    private var waitingLocalView: SurfaceViewRenderer? = null
+    private var callingLocalView: SurfaceViewRenderer? = null
     private var remoteView: SurfaceViewRenderer? = null
 
-    fun addLocalSurfaceView(vararg localView: SurfaceViewRenderer) {
-        this.localViewList.addAll(localView.toMutableList())
+    fun addWaitingLocalSurfaceView(localView: SurfaceViewRenderer) {
+        this.waitingLocalView = localView
+    }
+
+    fun addCallingLocalView(localView: SurfaceViewRenderer) {
+        this.callingLocalView = localView
     }
 
     fun addRemoteView(remoteView: SurfaceViewRenderer) {
@@ -89,17 +94,21 @@ class FaceChatRtcManager private constructor(
     fun setPeerInfo(peer: SignalServerInfo) {
         peerManager = VideoPeerManager(context, this)
         peerManager?.setIceServer(peer)
-        peerManager?.startLocalVoice()
     }
 
-    fun startLocalSurfaceRendering() {
-        localViewList.forEach {
+    fun startWaitingSurfaceRendering() {
+        waitingLocalView?.let {
             peerManager?.initSurfaceView(it)
             peerManager?.startLocalVideoCapture(it)
         }
     }
 
-    fun startRemoteSurfaceRendering() {
+    fun startCallingSurfaceRendering() {
+        callingLocalView?.let {
+            peerManager?.initSurfaceView(it)
+            peerManager?.startLocalVideoCapture(it)
+            peerManager?.startLocalVoice()
+        }
         remoteView?.let {
             peerManager?.initSurfaceView(it)
         }
@@ -244,14 +253,8 @@ class FaceChatRtcManager private constructor(
             isStart.set(false)
             isReleased.set(true)
 
-            localViewList.forEach {
-                it.release()
-            }
-
-            remoteView?.run {
-                release()
-                remoteView = null
-            }
+            releaseWaitingSurface()
+            releaseCallingSurface()
 
             socketManager?.run {
                 otherUserIdx = null
@@ -267,6 +270,25 @@ class FaceChatRtcManager private constructor(
             audioManager?.audioFocusLoss()
 
             doAfterRelease?.invoke()
+        }
+    }
+
+    fun releaseWaitingSurface() {
+        waitingLocalView?.run {
+            release()
+            waitingLocalView = null
+        }
+    }
+
+    fun releaseCallingSurface() {
+        callingLocalView?.run {
+            release()
+            callingLocalView = null
+        }
+
+        remoteView?.run {
+            release()
+            remoteView = null
         }
     }
 

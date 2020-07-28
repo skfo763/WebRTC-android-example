@@ -52,7 +52,7 @@ class VideoPeerManager(context: Context, private val observer: PeerConnectionObs
     ) {
         super.startRemoteVideoCapture(remoteSurfaceView, mediaStream)
         val videoTrack = mediaStream.videoTracks.getOrNull(0)
-        val audioTrack = mediaStream.videoTracks.getOrNull(0)
+        val audioTrack = mediaStream.audioTracks.getOrNull(0)
 
         if(videoTrack == null || audioTrack == null) {
             observer.onPeerError(true, showMessage = false, message = PEER_CREATE_ERROR)

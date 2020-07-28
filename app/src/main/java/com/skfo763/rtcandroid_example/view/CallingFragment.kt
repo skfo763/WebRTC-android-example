@@ -22,6 +22,10 @@ class CallingFragment : BaseFragment() {
 
     private val sharedViewModel: MainViewModel by activityViewModels()
 
+    override fun onPageChangedComplete() {
+
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -32,15 +36,16 @@ class CallingFragment : BaseFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        Log.d("hellohello", "onViewCreated - calling")
+        sharedViewModel.setCallingLocalSurface(calling_local)
+        sharedViewModel.setRemoteSurface(calling_remote)
     }
 
-    override fun onPageChangedComplete() {
-        Log.d("hellohello", "onPageChangedComplete - calling")
-        /*sharedViewModel.apply {
-            startLocalRendering()
-            startRemoteRendering()
-        }*/
+    override fun onStart() {
+        super.onStart()
+        sharedViewModel.apply {
+            startCallingRender()
+        }
     }
+
 
 }

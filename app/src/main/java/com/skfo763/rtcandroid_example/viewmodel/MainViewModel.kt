@@ -27,8 +27,12 @@ class MainViewModel(val rtcModule: FaceChatRtcManager) : ViewModel() {
 
     val fragmentType = MutableLiveData<Int>()
 
-    fun setLocalSurface(surfaceViewRenderer: SurfaceViewRenderer) {
-        rtcModule.addLocalSurfaceView(surfaceViewRenderer)
+    fun setWaitingLocalSurface(surfaceViewRenderer: SurfaceViewRenderer) {
+        rtcModule.addWaitingLocalSurfaceView(surfaceViewRenderer)
+    }
+
+    fun setCallingLocalSurface(surfaceViewRenderer: SurfaceViewRenderer) {
+        rtcModule.addCallingLocalView(surfaceViewRenderer)
     }
 
     fun setRemoteSurface(surfaceViewRenderer: SurfaceViewRenderer) {
@@ -39,12 +43,12 @@ class MainViewModel(val rtcModule: FaceChatRtcManager) : ViewModel() {
         rtcModule.setPeerInfo(signalServer)
     }
 
-    fun startLocalRendering() {
-        rtcModule.startLocalSurfaceRendering()
+    fun startWaitingRender() {
+        rtcModule.startWaitingSurfaceRendering()
     }
 
-    fun startRemoteRendering() {
-        rtcModule.startRemoteSurfaceRendering()
+    fun startCallingRender() {
+        rtcModule.startCallingSurfaceRendering()
     }
 
     fun setRtcWaiting() {
