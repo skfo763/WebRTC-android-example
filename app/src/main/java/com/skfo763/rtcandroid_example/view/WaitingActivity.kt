@@ -4,15 +4,17 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.widget.CompoundButton
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.skfo763.rtcandroid_example.R
+import com.skfo763.rtcandroid_example.utils.TokenManager
 import com.skfo763.rtcandroid_example.view.MainActivity.Companion.REQUEST_CODE_PERMISSION
 import kotlinx.android.synthetic.main.activity_waiting.*
 
-class WaitingActivity : AppCompatActivity() {
+class WaitingActivity : AppCompatActivity(), CompoundButton.OnCheckedChangeListener {
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -20,6 +22,7 @@ class WaitingActivity : AppCompatActivity() {
         setContentView(R.layout.activity_waiting)
 
         setClickListeners()
+        switch_btn.setOnCheckedChangeListener(this)
     }
 
     private fun setClickListeners() {
@@ -50,8 +53,14 @@ class WaitingActivity : AppCompatActivity() {
                 .create()
                 .show()
         } else {
-            startActivity(Intent(this, MainActivity::class.java))
+            startActivity(Intent(this, MainActivity::class.java).apply {
+                putExtra("token", getToken())
+            })
         }
+    }
+
+    private fun getToken(): String {
+        return TokenManager.getToken(!switch_btn.isChecked)
     }
 
     private fun isPermissionGranted(permission: String): Boolean {
@@ -59,5 +68,13 @@ class WaitingActivity : AppCompatActivity() {
             this,
             permission
         ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    override fun onCheckedChanged(buttonView: CompoundButton?, isChecked: Boolean) {
+        if(isChecked) {
+            switch_btn.text = "여자"
+        } else {
+            switch_btn.text = "남자"
+        }
     }
 }

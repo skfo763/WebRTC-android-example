@@ -38,7 +38,7 @@ class FaceChatRtcManager private constructor(
     private var otherUserIdx: Int? = null
 
     private var socketManager: SocketManager? = null
-    private var peerManager: PeerManager? = null
+    private var peerManager: VideoPeerManager? = null
     private val audioManager :MAudioManager by lazy { MAudioManagerImpl(context) }
 
     private val localViewList = mutableListOf<SurfaceViewRenderer>()
@@ -48,8 +48,8 @@ class FaceChatRtcManager private constructor(
         this.localViewList.addAll(localView.toMutableList())
     }
 
-    fun addRemoteSurfaceView(remoteView: SurfaceViewRenderer) {
-
+    fun addRemoteView(remoteView: SurfaceViewRenderer) {
+        this.remoteView = remoteView
     }
 
     private val appSdpObserver = object: AppSdpObserver() {
@@ -77,8 +77,8 @@ class FaceChatRtcManager private constructor(
         super.onAddStream(mediaStream)
         audioManager.audioFocusDucking()
 
-        if(remoteSurfaceView != null && mediaStream != null) {
-            peerManager?.startRemoteVideoCapture(remoteSurfaceView!!, mediaStream)
+        if(remoteView != null && mediaStream != null) {
+            peerManager?.startRemoteVideoCapture(remoteView!!, mediaStream)
         }
     }
 
@@ -90,13 +90,17 @@ class FaceChatRtcManager private constructor(
         peerManager = VideoPeerManager(context, this)
         peerManager?.setIceServer(peer)
         peerManager?.startLocalVoice()
+    }
 
-        localSurfaceView?.let {
+    fun startLocalSurfaceRendering() {
+        localViewList.forEach {
             peerManager?.initSurfaceView(it)
             peerManager?.startLocalVideoCapture(it)
         }
+    }
 
-        remoteSurfaceView?.let {
+    fun startRemoteSurfaceRendering() {
+        remoteView?.let {
             peerManager?.initSurfaceView(it)
         }
     }

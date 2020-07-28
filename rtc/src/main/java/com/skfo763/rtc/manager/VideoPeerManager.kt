@@ -28,16 +28,18 @@ class VideoPeerManager(context: Context, private val observer: PeerConnectionObs
     }
 
     override fun initSurfaceView(surfaceViewRenderer: SurfaceViewRenderer) {
+        super.initSurfaceView(surfaceViewRenderer)
         surfaceViewRenderer.setMirror(true)
         surfaceViewRenderer.setEnableHardwareScaler(true)
         surfaceViewRenderer.init(rootEglBase.eglBaseContext, null)
     }
 
     override fun startLocalVideoCapture(localSurfaceView: SurfaceViewRenderer) {
+        super.startLocalVideoCapture(localSurfaceView)
         surfaceTextureHelper = SurfaceTextureHelper.create(Thread.currentThread().name, rootEglBase.eglBaseContext)
         videoCaptureManager.videoCapturer?.let {
             it.initialize(surfaceTextureHelper, localSurfaceView.context, localVideoSource.capturerObserver)
-            it.startCapture(240, 240, 60)
+            it.startCapture(720, 720, 60)
         }
         localVideoTrack.addSink(localSurfaceView)
         localVideoTrack.setEnabled(true)

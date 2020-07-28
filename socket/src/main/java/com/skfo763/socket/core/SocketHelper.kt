@@ -6,6 +6,7 @@ import io.socket.client.IO
 import io.socket.client.Socket
 import io.socket.emitter.Emitter
 import okhttp3.OkHttpClient
+import java.lang.Exception
 import java.security.cert.X509Certificate
 import java.util.concurrent.atomic.AtomicInteger
 import javax.net.ssl.SSLContext
@@ -39,6 +40,8 @@ class SocketHelper(listener: SocketEmitterListener) {
     }
 
     private val connectErrorListener = Emitter.Listener {
+        (it.getOrNull(0) as Exception).printStackTrace()
+
         val connectCount = retryConnectionCount.get()
         if(connectCount >= RECONNECTION_ATTEMPTS - 1) {
             listener.onConnectError(connectCount)
