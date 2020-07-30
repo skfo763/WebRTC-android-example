@@ -23,32 +23,19 @@ class MainViewModel(val rtcModule: FaceChatRtcManager) : ViewModel() {
     )
 
     private val signalServer = SignalServerInfo(SIGNAL_SERVER, stunAndTurnList, PASSWORD)
-    private val compositeDisposable = CompositeDisposable()
 
     val fragmentType = MutableLiveData<Int>()
 
     fun setWaitingLocalSurface(surfaceViewRenderer: SurfaceViewRenderer) {
-        rtcModule.addWaitingLocalSurfaceView(surfaceViewRenderer)
+        rtcModule.addWaitingSurfaceView(surfaceViewRenderer)
     }
 
-    fun setCallingLocalSurface(surfaceViewRenderer: SurfaceViewRenderer) {
-        rtcModule.addCallingLocalView(surfaceViewRenderer)
-    }
-
-    fun setRemoteSurface(surfaceViewRenderer: SurfaceViewRenderer) {
-        rtcModule.addRemoteView(surfaceViewRenderer)
+    fun setCallingSurfaceRenderer(remote: SurfaceViewRenderer) {
+        rtcModule.addCallingSurfaceView(remote)
     }
 
     fun setPeerInfo() {
         rtcModule.setPeerInfo(signalServer)
-    }
-
-    fun startWaitingRender() {
-        rtcModule.startWaitingSurfaceRendering()
-    }
-
-    fun startCallingRender() {
-        rtcModule.startCallingSurfaceRendering()
     }
 
     fun setRtcWaiting() {
@@ -57,6 +44,18 @@ class MainViewModel(val rtcModule: FaceChatRtcManager) : ViewModel() {
 
     fun getUserJoinInfo(): UserJoinInfo {
         return UserJoinInfo(token, PASSWORD, false)
+    }
+
+    fun setCallingLocalSurfaceView(baseLocal: SurfaceViewRenderer) {
+        rtcModule.addCallingLocalSurfaceView(baseLocal)
+    }
+
+    fun startWaitingLocalSurfaceView() {
+        rtcModule.startWaitingLocalSurfaceView()
+    }
+
+    fun startCallingLocalSurfaceView() {
+        // rtcModule.startCallingLocalSurfaceView()
     }
 
 }

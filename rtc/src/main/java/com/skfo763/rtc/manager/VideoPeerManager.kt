@@ -1,27 +1,22 @@
 package com.skfo763.rtc.manager
 
 import android.content.Context
+import android.util.Log
 import com.skfo763.rtc.data.PEER_CREATE_ERROR
 import com.skfo763.rtc.data.VIDEO_TRACK_ID
 import com.skfo763.rtc.inobs.PeerConnectionObserver
-import org.webrtc.MediaStream
-import org.webrtc.PeerConnectionFactory
-import org.webrtc.SurfaceTextureHelper
-import org.webrtc.SurfaceViewRenderer
+import org.webrtc.*
+import java.lang.Exception
 
-class VideoPeerManager(context: Context, private val observer: PeerConnectionObserver) : VoicePeerManager(context, observer) {
+class VideoPeerManager(private val context: Context, private val observer: PeerConnectionObserver) : VoicePeerManager(context, observer) {
 
-    private lateinit var surfaceTextureHelper: SurfaceTextureHelper
+    private var surfaceTextureHelper: SurfaceTextureHelper? = null
 
-    private val localVideoSource by lazy {
-        peerConnectionFactory.createVideoSource(false)
-    }
 
-    private val localVideoTrack by lazy {
-        peerConnectionFactory.createVideoTrack(VIDEO_TRACK_ID, localVideoSource)
-    }
+    private val localVideoSource = peerConnectionFactory.createVideoSource(true)
+    private val localVideoTrack = peerConnectionFactory.createVideoTrack(VIDEO_TRACK_ID, localVideoSource)
 
-    private val videoCaptureManager = VideoCaptureManagerImpl.getVideoCapture(context)
+    private var videoCaptureManager: VideoCaptureManager? = null
 
     override fun PeerConnectionFactory.Builder.peerConnectionFactory(): PeerConnectionFactory.Builder {
         return this
@@ -36,11 +31,19 @@ class VideoPeerManager(context: Context, private val observer: PeerConnectionObs
 
     override fun startLocalVideoCapture(localSurfaceView: SurfaceViewRenderer) {
         super.startLocalVideoCapture(localSurfaceView)
+
         surfaceTextureHelper = SurfaceTextureHelper.create(Thread.currentThread().name, rootEglBase.eglBaseContext)
-        videoCaptureManager.videoCapturer?.let {
+        videoCaptureManager = VideoCaptureManagerImpl.getVideoCapture(context)
+        videoCaptureManager?.videoCapturer?.stopCapture()
+        videoCaptureManager?.videoCapturer?.dispose()
+
+        videoCaptureManager?.videoCapturer?.let {
             it.initialize(surfaceTextureHelper, localSurfaceView.context, localVideoSource.capturerObserver)
             it.startCapture(720, 720, 60)
         }
+    }
+
+    fun startSurfaceRtc(localSurfaceView: SurfaceViewRenderer) {
         localVideoTrack.addSink(localSurfaceView)
         localVideoTrack.setEnabled(true)
         startLocalVoice()
@@ -63,9 +66,9 @@ class VideoPeerManager(context: Context, private val observer: PeerConnectionObs
 
     override fun disconnectPeer() {
         super.disconnectPeer()
-        localVideoSource.dispose()
-        surfaceTextureHelper.dispose()
-        videoCaptureManager.stopVideoCapture { it.printStackTrace() }
+        localVideoSource?.dispose()
+        surfaceTextureHelper?.dispose()
+        videoCaptureManager?.stopVideoCapture { it.printStackTrace() }
     }
 
 }

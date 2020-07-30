@@ -5,7 +5,6 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import com.skfo763.rtcandroid_example.R
 import com.skfo763.rtcandroid_example.base.BaseFragment
@@ -36,16 +35,10 @@ class CallingFragment : BaseFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        sharedViewModel.setCallingLocalSurface(calling_local)
-        sharedViewModel.setRemoteSurface(calling_remote)
-    }
+        Log.d("hellohello", "calling - onViewCreated")
 
-    override fun onStart() {
-        super.onStart()
-        sharedViewModel.apply {
-            startCallingRender()
-        }
+        sharedViewModel.setCallingLocalSurfaceView(calling_local)
+        sharedViewModel.setCallingSurfaceRenderer(calling_remote)
     }
-
 
 }

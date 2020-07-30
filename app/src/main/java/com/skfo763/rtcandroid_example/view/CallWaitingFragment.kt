@@ -22,7 +22,13 @@ class CallWaitingFragment : BaseFragment() {
     private val sharedViewModel by activityViewModels<MainViewModel>()
 
     override fun onPageChangedComplete() {
-
+        waiting_local?.let {
+            sharedViewModel.apply {
+                startWaitingLocalSurfaceView()
+                setPeerInfo()
+                setRtcWaiting()
+            }
+        }
     }
 
     override fun onCreateView(
@@ -35,17 +41,11 @@ class CallWaitingFragment : BaseFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        // sharedViewModel.setWaitingLocalSurface(waiting_local)
-    }
-
-    override fun onStart() {
-        super.onStart()
-        sharedViewModel.apply {
-            setPeerInfo()
-            // startWaitingRender()
-            setRtcWaiting()
+        Log.d("hellohello", "callwaiting - onViewCreated")
+        sharedViewModel.setWaitingLocalSurface(waiting_local)
+        btn_call.setOnClickListener {
+            (activity as? MainActivity)?.goToCallFragment()
         }
+        onPageChangedComplete()
     }
-
-
 }

@@ -17,7 +17,7 @@ import org.webrtc.SurfaceViewRenderer
 import java.util.concurrent.atomic.AtomicBoolean
 
 class FaceChatRtcManager private constructor(
-    private val context: Context,
+    context: Context,
     private val iFaceChatViewModelListener: IFaceChatViewModelListener
 ) : PeerConnectionObserver(), PeerSignalCallback {
 
@@ -37,31 +37,54 @@ class FaceChatRtcManager private constructor(
     private val isReleased = AtomicBoolean(false)
     private var otherUserIdx: Int? = null
 
-    private var socketManager: SocketManager? = null
-    private var peerManager: VideoPeerManager? = null
-    private val audioManager :MAudioManager by lazy { MAudioManagerImpl(context) }
+    private var socketManager = SocketManagerImpl(this)
+    private var peerManager = VideoPeerManager(context, this)
+    private val audioManager = MAudioManagerImpl(context)
 
     private var waitingLocalView: SurfaceViewRenderer? = null
     private var callingLocalView: SurfaceViewRenderer? = null
-    private var remoteView: SurfaceViewRenderer? = null
+    private var callingRemoteView: SurfaceViewRenderer? = null
 
-    fun addWaitingLocalSurfaceView(localView: SurfaceViewRenderer) {
-        this.waitingLocalView = localView
+
+    fun addCallingLocalSurfaceView(localView: SurfaceViewRenderer) {
+        callingLocalView = localView
+        callingLocalView?.let {
+            peerManager.initSurfaceView(it)
+        }
     }
 
-    fun addCallingLocalView(localView: SurfaceViewRenderer) {
-        this.callingLocalView = localView
+    fun addWaitingSurfaceView(localView: SurfaceViewRenderer) {
+        waitingLocalView = localView
+        waitingLocalView?.let {
+            peerManager.initSurfaceView(it)
+            peerManager.startSurfaceRtc(it)
+        }
     }
 
-    fun addRemoteView(remoteView: SurfaceViewRenderer) {
-        this.remoteView = remoteView
+    fun startWaitingLocalSurfaceView() {
+        waitingLocalView?.let {
+            peerManager.startLocalVideoCapture(it)
+        }
+    }
+
+    fun startCallingLocalSurfaceView() {
+        callingLocalView?.let {
+            peerManager.startLocalVideoCapture(it)
+        }
+    }
+
+    fun addCallingSurfaceView(remoteView: SurfaceViewRenderer) {
+        callingRemoteView = remoteView
+        callingRemoteView?.let {
+            peerManager.initSurfaceView(it)
+        }
     }
 
     private val appSdpObserver = object: AppSdpObserver() {
         override fun onCreateSuccess(desc: SessionDescription?) {
             super.onCreateSuccess(desc)
             desc?.let {
-                socketManager?.sendOfferAnswerToSocket(it)
+                socketManager.sendOfferAnswerToSocket(it)
             } ?: kotlin.run {
                 onPeerError(isCritical = false, showMessage = false, message = "Session description data is null")
             }
@@ -71,8 +94,8 @@ class FaceChatRtcManager private constructor(
     override fun onIceCandidate(iceCandidate: IceCandidate?) {
         super.onIceCandidate(iceCandidate)
         iceCandidate?.let {
-            socketManager?.sendIceCandidateToSocket(it)
-            peerManager?.addIceCandidate(it)
+            socketManager.sendIceCandidateToSocket(it)
+            peerManager.addIceCandidate(it)
         } ?: kotlin.run {
             onPeerError(isCritical = false, showMessage = false, message = "Ice candidate data is null")
         }
@@ -82,8 +105,8 @@ class FaceChatRtcManager private constructor(
         super.onAddStream(mediaStream)
         audioManager.audioFocusDucking()
 
-        if(remoteView != null && mediaStream != null) {
-            peerManager?.startRemoteVideoCapture(remoteView!!, mediaStream)
+        if(callingRemoteView != null && mediaStream != null) {
+            peerManager.startRemoteVideoCapture(callingRemoteView!!, mediaStream)
         }
     }
 
@@ -92,45 +115,25 @@ class FaceChatRtcManager private constructor(
     }
 
     fun setPeerInfo(peer: SignalServerInfo) {
-        peerManager = VideoPeerManager(context, this)
-        peerManager?.setIceServer(peer)
-    }
-
-    fun startWaitingSurfaceRendering() {
-        waitingLocalView?.let {
-            peerManager?.initSurfaceView(it)
-            peerManager?.startLocalVideoCapture(it)
-        }
-    }
-
-    fun startCallingSurfaceRendering() {
-        callingLocalView?.let {
-            peerManager?.initSurfaceView(it)
-            peerManager?.startLocalVideoCapture(it)
-            peerManager?.startLocalVoice()
-        }
-        remoteView?.let {
-            peerManager?.initSurfaceView(it)
-        }
+        peerManager.setIceServer(peer)
     }
 
     fun startWaiting(peer: SignalServerInfo) {
-        socketManager = SocketManagerImpl(this)
-        socketManager?.initializeSocket(peer.signalServerHost)
+        socketManager.initializeSocket(peer.signalServerHost)
     }
 
     fun stopCallSignFromClient(stoppedAt: StopCallType, shouldCloseSocket: Boolean) {
         when(stoppedAt) {
             StopCallType.POWER_DESTROY -> releasePeerAndSocket()
-            StopCallType.GO_TO_STORE -> socketManager?.sendHangUpEventToSocket(HANGUP, stoppedAt)
+            StopCallType.GO_TO_STORE -> socketManager.sendHangUpEventToSocket(HANGUP, stoppedAt)
             StopCallType.AT_FRAGMENT -> {
-                if(!shouldCloseSocket && isStart.get()) socketManager?.sendHangUpEventToSocket(HANGUP, stoppedAt)
+                if(!shouldCloseSocket && isStart.get()) socketManager.sendHangUpEventToSocket(HANGUP, stoppedAt)
                 else releasePeerAndSocket {
                     iFaceChatViewModelListener.onUiEvent(VoiceChatUiEvent.STOP_PROCESS_COMPLETE)
                 }
             }
             StopCallType.QUIT_ACTIVITY -> {
-                if(!shouldCloseSocket && isStart.get()) socketManager?.sendHangUpEventToSocket(HANGUP, stoppedAt)
+                if(!shouldCloseSocket && isStart.get()) socketManager.sendHangUpEventToSocket(HANGUP, stoppedAt)
                 else releasePeerAndSocket {
                     iFaceChatViewModelListener.onUiEvent(VoiceChatUiEvent.FINISH)
                 }
@@ -149,12 +152,12 @@ class FaceChatRtcManager private constructor(
                 put(OTHER, otherUserIdx)
             }
         }
-        socketManager?.sendJoinToSocket(authInfo)
+        socketManager.sendJoinToSocket(authInfo)
     }
 
     override fun createMatchingOffer() {
-        peerManager?.callOffer(appSdpObserver)
-        socketManager?.sendCommonEventToSocket(CALL_STARTED)
+        peerManager.callOffer(appSdpObserver)
+        socketManager.sendCommonEventToSocket(CALL_STARTED)
         if(!isStart.get()) {
             iFaceChatViewModelListener.onUiEvent(VoiceChatUiEvent.START_CALL)
         }
@@ -162,8 +165,8 @@ class FaceChatRtcManager private constructor(
     }
 
     override fun createMatchingAnswer() {
-        peerManager?.callAnswer(appSdpObserver)
-        socketManager?.sendCommonEventToSocket(CALL_STARTED)
+        peerManager.callAnswer(appSdpObserver)
+        socketManager.sendCommonEventToSocket(CALL_STARTED)
         if(!isStart.get()) {
             iFaceChatViewModelListener.onUiEvent(VoiceChatUiEvent.START_CALL)
         }
@@ -171,18 +174,18 @@ class FaceChatRtcManager private constructor(
     }
 
     override fun onOfferReceived(description: SessionDescription) {
-        peerManager?.run {
+        peerManager.run {
             onRemoteSessionReceived(appSdpObserver, description)
             callAnswer(appSdpObserver)
         }
     }
 
     override fun onAnswerReceived(description: SessionDescription) {
-        peerManager?.onRemoteSessionReceived(appSdpObserver, description)
+        peerManager.onRemoteSessionReceived(appSdpObserver, description)
     }
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
-        peerManager?.addIceCandidate(iceCandidate)
+        peerManager.addIceCandidate(iceCandidate)
     }
 
     override fun onMatched(data: JSONObject) {
@@ -192,6 +195,7 @@ class FaceChatRtcManager private constructor(
             val duration = data.getInt(DURATION_SECOND)
             iFaceChatViewModelListener.sendTimerAndIdx(duration, otherIdx)
             this.otherUserIdx = otherIdx
+            startCallingLocalSurfaceView()
 
             if(isOffer) createMatchingOffer()
             else createMatchingAnswer()
@@ -256,15 +260,13 @@ class FaceChatRtcManager private constructor(
             releaseWaitingSurface()
             releaseCallingSurface()
 
-            socketManager?.run {
+            socketManager.run {
                 otherUserIdx = null
                 disconnectSocket()
-                socketManager = null
             }
 
-            peerManager?.run {
+            peerManager.run {
                 disconnectPeer()
-                peerManager = null
             }
 
             audioManager?.audioFocusLoss()
@@ -286,9 +288,9 @@ class FaceChatRtcManager private constructor(
             callingLocalView = null
         }
 
-        remoteView?.run {
+        callingRemoteView?.run {
             release()
-            remoteView = null
+            callingRemoteView = null
         }
     }
 

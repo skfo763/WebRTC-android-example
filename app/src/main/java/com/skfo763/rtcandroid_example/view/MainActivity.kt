@@ -84,6 +84,7 @@ class MainActivity : AppCompatActivity(), IFaceChatViewModelListener {
     private fun setFragmentViewPager() {
         viewPager2.apply {
             orientation = ViewPager2.ORIENTATION_HORIZONTAL
+            viewPager2.offscreenPageLimit = 2
             adapter = PagerAdapter(this@MainActivity, fragmentList)
             registerOnPageChangeCallback(pageChangeCallback)
             setCurrentItem(TYPE_WAITING, false)
@@ -187,5 +188,9 @@ class MainActivity : AppCompatActivity(), IFaceChatViewModelListener {
             setFragmentViewPager()
             observeLiveData()
         }
+    }
+
+    fun goToCallFragment() {
+        viewPager2.setCurrentItem(TYPE_CALLING, false)
     }
 }
