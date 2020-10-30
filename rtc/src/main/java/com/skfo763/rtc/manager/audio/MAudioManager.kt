@@ -1,4 +1,4 @@
-package com.skfo763.rtc.manager
+package com.skfo763.rtc.manager.audio
 
 interface MAudioManager {
 

@@ -1,4 +1,4 @@
-package com.skfo763.rtc.manager
+package com.skfo763.rtc.manager.audio
 
 import android.content.Context
 import android.media.AudioAttributes
@@ -6,6 +6,7 @@ import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Build
 import android.util.Log
+import com.skfo763.rtc.manager.audio.MAudioManager
 import java.lang.Exception
 
 class MAudioManagerImpl(context: Context): AudioManager.OnAudioFocusChangeListener, MAudioManager {

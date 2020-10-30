@@ -13,12 +13,8 @@ open class VoicePeerManager(context: Context, private val observer: PeerConnecti
         peerConnectionFactory.createAudioSource(MediaConstraints())
     }
 
-    private val localAudioTrack: AudioTrack by lazy {
+    val localAudioTrack: AudioTrack by lazy {
         peerConnectionFactory.createAudioTrack(AUDIO_TRACK_ID, localAudioSource)
-    }
-
-    private val localStream: MediaStream by lazy {
-        peerConnectionFactory.createLocalMediaStream(LOCAL_STREAM_ID)
     }
 
     override fun PeerConnectionFactory.Builder.peerConnectionFactory(): PeerConnectionFactory.Builder {
@@ -26,6 +22,8 @@ open class VoicePeerManager(context: Context, private val observer: PeerConnecti
     }
 
     override fun startLocalVoice() {
+        peerConnection = buildPeerConnection()
+
         localAudioTrack.setEnabled(true)
         localStream.addTrack(localAudioTrack)
         peerConnection?.addStream(localStream) ?: run {
@@ -34,8 +32,8 @@ open class VoicePeerManager(context: Context, private val observer: PeerConnecti
     }
 
     override fun disconnectPeer() {
-        super.disconnectPeer()
         localAudioSource.dispose()
+        super.disconnectPeer()
     }
 
 }

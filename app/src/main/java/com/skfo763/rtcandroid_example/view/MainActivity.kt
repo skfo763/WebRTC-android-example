@@ -1,166 +1,88 @@
 package com.skfo763.rtcandroid_example.view
 
 import android.Manifest
-import android.content.pm.PackageManager
+import android.content.Context
+import android.os.Build
 import android.os.Bundle
-import android.util.Log
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.view.View
+import android.view.animation.Animation
+import android.view.animation.TranslateAnimation
+import androidx.annotation.ColorInt
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
+import androidx.databinding.DataBindingUtil
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
-import com.skfo763.rtc.contracts.IFaceChatViewModelListener
-import com.skfo763.rtc.contracts.VoiceChatUiEvent
-import com.skfo763.rtc.data.UserJoinInfo
+import com.google.android.material.snackbar.Snackbar
 import com.skfo763.rtcandroid_example.R
 import com.skfo763.rtcandroid_example.base.BaseFragment
+import com.skfo763.rtcandroid_example.base.FragmentType
+import com.skfo763.rtcandroid_example.base.MainActivityUseCase
+import com.skfo763.rtcandroid_example.databinding.ActivityMainBinding
+import com.skfo763.rtcandroid_example.utils.isPermissionGranted
 import com.skfo763.rtcandroid_example.viewmodel.MainViewModel
-import com.skfo763.rtcandroid_example.viewmodel.ViewModelFactories
-import kotlinx.android.synthetic.main.activity_main.*
 
-class MainActivity : AppCompatActivity(), IFaceChatViewModelListener {
+class MainActivity : AppCompatActivity(), MainActivityUseCase {
 
     companion object {
-        const val TYPE_CALLING = 0
-        const val TYPE_WAITING = 1
         const val REQUEST_CODE_PERMISSION = 1001
     }
 
+    private lateinit var binding: ActivityMainBinding
+
     private val viewModel by lazy {
-        ViewModelProvider(
-            this,
-            ViewModelFactories(this, this)
-        ).get(MainViewModel::class.java)
+        ViewModelProvider(this, MainViewModel.Factory(this, this)).get(MainViewModel::class.java)
     }
 
     private val fragmentList: List<BaseFragment> by lazy {
         listOf(CallingFragment.newInstance(), CallWaitingFragment.newInstance())
     }
 
+    override val token: String get() = intent.extras?.getString("token", "") ?: ""
+
     private val pageChangeCallback = object: ViewPager2.OnPageChangeCallback() {
         override fun onPageSelected(position: Int) {
             super.onPageSelected(position)
-            viewPager2.isUserInputEnabled = position == TYPE_CALLING
-            fragmentList[position].onPageChangedComplete()
-        }
-
-        override fun onPageScrollStateChanged(state: Int) {
-            when(state) {
-                ViewPager2.SCROLL_STATE_IDLE -> {
-
-                }
-                ViewPager2.SCROLL_STATE_DRAGGING -> {
-
-                }
-                else -> {
-
-                }
-            }
-        }
-
-        override fun onPageScrolled(
-            position: Int,
-            positionOffset: Float,
-            positionOffsetPixels: Int
-        ) {
-            super.onPageScrolled(position, positionOffset, positionOffsetPixels)
+            binding.viewPager2.isUserInputEnabled = position == FragmentType.TYPE_CALLING.index
+            fragmentList[position].onPageChangeComplete()
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        viewModel.token = intent.getStringExtra("token") ?: ""
-        viewPager2.isUserInputEnabled = false
-
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
+        binding.lifecycleOwner = this
+        binding.viewModel = viewModel
+        binding.viewPager2.isUserInputEnabled = false
+        observeLiveData()
         requestPermission(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA)
     }
 
     private fun setFragmentViewPager() {
-        viewPager2.apply {
+        binding.viewPager2.apply {
             orientation = ViewPager2.ORIENTATION_HORIZONTAL
-            viewPager2.offscreenPageLimit = 2
+            offscreenPageLimit = 2
             adapter = PagerAdapter(this@MainActivity, fragmentList)
             registerOnPageChangeCallback(pageChangeCallback)
-            setCurrentItem(TYPE_WAITING, false)
+            setCurrentItem(FragmentType.TYPE_WAITING.index, false)
         }
     }
 
     private fun observeLiveData() {
         viewModel.apply {
             fragmentType.observe(this@MainActivity, Observer {
-                viewPager2.setCurrentItem(it, false)
+                val prevPosition = binding.viewPager2.currentItem
+                if(it.first.index == prevPosition) return@Observer
+                fragmentList[prevPosition].onPageHideStartFromActivity(it.first)
+                binding.viewPager2.setCurrentItem(it.first.index, it.second)
             })
-
         }
-    }
-
-    override fun updateWaitInfo(text: String) {
-
-
-    }
-
-    override fun onUiEvent(uiEvent: VoiceChatUiEvent) {
-        runOnUiThread {
-            when(uiEvent) {
-                VoiceChatUiEvent.START_CALL -> {
-                    viewPager2.setCurrentItem(TYPE_CALLING, false)
-                }
-            }
-        }
-    }
-
-    override fun onError(e: Any) {
-        runOnUiThread {
-            if(this.isFinishing) return@runOnUiThread
-            AlertDialog.Builder(this)
-                .setTitle("Error")
-                .setMessage("Unexpected error has occurred. Please retry in few seconds")
-                .setCancelable(false)
-                .setPositiveButton("Back") { dialog, _ -> dialog.dismiss(); finish() }
-                .create()
-                .show()
-        }
-    }
-
-    override fun callUserInfo(): UserJoinInfo {
-        return viewModel.getUserJoinInfo()
-    }
-
-    override fun sendTimerAndIdx(duration: Int, otherIdx: Int) {
-        Log.d("hellohello", "sendTimerAndIdx")
-    }
-
-    override fun sendFinishInfo(displayRating: Boolean?, matchIdx: Int?) {
-
-
-    }
-
-
-    // Adapter class for viewpager2
-    private class PagerAdapter(
-        activity: AppCompatActivity,
-        private val fragmentList: List<Fragment>
-    ): FragmentStateAdapter(activity) {
-
-        override fun getItemCount() = fragmentList.size
-
-        override fun createFragment(position: Int) = fragmentList[position]
-
-    }
-
-
-    // Camera/Audio permission process
-    private fun isPermissionGranted(permission: String): Boolean {
-        return ContextCompat.checkSelfPermission(
-            this,
-            permission
-        ) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun requestPermission(vararg permissions: String) {
@@ -181,16 +103,83 @@ class MainActivity : AppCompatActivity(), IFaceChatViewModelListener {
                 .setTitle("Warning")
                 .setMessage("You cannot use service due to denying of permission.")
                 .setCancelable(false)
-                .setPositiveButton("Back") { dialog, _ -> dialog.dismiss(); finish() }
+                .setPositiveButton("Back") { dialog, _ -> dialog.dismiss(); finishActivity() }
                 .create()
                 .show()
         } else {
+            viewModel.initRtcModule()
             setFragmentViewPager()
-            observeLiveData()
         }
     }
 
-    fun goToCallFragment() {
-        viewPager2.setCurrentItem(TYPE_CALLING, false)
+    private class PagerAdapter(
+        activity: AppCompatActivity,
+        private val fragmentList: List<Fragment>
+    ): FragmentStateAdapter(activity) {
+
+        override fun getItemCount() = fragmentList.size
+
+        override fun createFragment(position: Int) = fragmentList[position]
+
     }
+
+    override fun vibrate(milliSecond: Long) {
+        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(milliSecond, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            vibrator.vibrate(milliSecond)
+        }
+    }
+
+    override fun showTopBanner(stringResId: Int, colorResId: Int) {
+        runOnUiThread {
+            showAnimTopBanner(getString(stringResId), resources.getColor(colorResId))
+        }
+    }
+
+    override fun showTopBanner(message: String, resId: Int) {
+        runOnUiThread {
+            showAnimTopBanner(message, resources.getColor(resId))
+        }
+    }
+
+    override fun showToast(text: String) {
+        Snackbar.make(binding.rootView, text, Snackbar.LENGTH_SHORT)
+    }
+
+    override fun finishActivity() {
+        this.finish()
+    }
+
+    private fun showAnimTopBanner(message: String, @ColorInt color: Int) {
+        val animate = TranslateAnimation(0f, 0f, 0f, -binding.banner.height.toFloat()).apply {
+            duration = 2000
+            fillAfter = true
+            setAnimationListener(object : Animation.AnimationListener {
+                override fun onAnimationRepeat(animation: Animation?) = Unit
+                override fun onAnimationStart(animation: Animation?) = run { binding.banner.visibility = View.VISIBLE }
+                override fun onAnimationEnd(animation: Animation?) = run { binding.banner.visibility = View.INVISIBLE }
+            })
+        }
+        binding.banner.text = message
+        binding.banner.setBackgroundColor(color)
+        binding.banner.startAnimation(animate)
+    }
+
+    override fun onDestroy() {
+        viewModel.rtcModule.disposePeer()
+        super.onDestroy()
+    }
+
+    override fun onBackPressed() {
+        if (!isFinishing && binding.viewPager2.adapter != null) {
+            fragmentList[binding.viewPager2.currentItem].onBackPressedComplete {
+                super.onBackPressed()
+            }
+        } else {
+            super.onBackPressed()
+        }
+    }
+
 }

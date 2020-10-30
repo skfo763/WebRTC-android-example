@@ -1,3 +1,15 @@
 <resources>
     <string name="app_name">RTCandroid-Example</string>
+    <string name="face_chat_matching_success">Connected</string>
+    <string name="voice_chat_disconnect_from_server">The connection to the server has been lost.</string>
+    <string name="title">Demo App for Video call</string>
+    <string name="gender_male">Male</string>
+    <string name="gender_female">Female</string>
+    <string name="start_call">Start call</string>
+    <string name="earpiece_connected">Earphones are connected</string>
+    <string name="earpiece_disconnected">Earphones are disconnected</string>
+    <string name="back_confirm_title">Stop Call</string>
+    <string name="back_confirm_message">Are you sure to stop call? All connection will be stopped!</string>
+    <string name="confirm">Confirm</string>
+    <string name="deny">Deny</string>
 </resources>

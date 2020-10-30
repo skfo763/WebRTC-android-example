@@ -1,10 +1,12 @@
 package com.skfo763.rtc.manager
 
 import android.content.Context
-import com.skfo763.rtc.data.MAudioDeviceModule
+import android.os.Build
 import com.skfo763.rtc.data.*
+import com.skfo763.rtc.inobs.AppSdpObserver
 import com.skfo763.rtc.inobs.PeerConnectionObserver
 import org.webrtc.*
+import java.util.concurrent.atomic.AtomicBoolean
 
 abstract class PeerManager(context: Context, private val observer: PeerConnectionObserver) {
 
@@ -15,9 +17,8 @@ abstract class PeerManager(context: Context, private val observer: PeerConnectio
         buildPeerConnectionFactory(context)
     }
 
-    protected val peerConnection by lazy {
-        buildPeerConnection()
-    }
+    protected var peerConnection: PeerConnection? = null
+    private val isDisposed = AtomicBoolean(false)
 
     private val constraints = MediaConstraints().apply {
         mandatory.add(MediaConstraints.KeyValuePair(OFFER_TO_RECEIVE_VIDEO, "true"))
@@ -26,6 +27,10 @@ abstract class PeerManager(context: Context, private val observer: PeerConnectio
     }
 
     abstract fun PeerConnectionFactory.Builder.peerConnectionFactory(): PeerConnectionFactory.Builder
+
+    val localStream: MediaStream by lazy {
+        peerConnectionFactory.createLocalMediaStream(LOCAL_STREAM_ID)
+    }
 
     private fun buildPeerConnectionFactory(context: Context): PeerConnectionFactory {
         PeerConnectionFactory.initialize(PeerConnectionFactory.InitializationOptions.builder(context)
@@ -52,7 +57,7 @@ abstract class PeerManager(context: Context, private val observer: PeerConnectio
     private fun getVideoEncoderFactory(): DefaultVideoEncoderFactory {
         return DefaultVideoEncoderFactory(
                 rootEglBase.eglBaseContext,
-                true,
+                false,
                 true
         )
     }
@@ -61,18 +66,16 @@ abstract class PeerManager(context: Context, private val observer: PeerConnectio
         return DefaultVideoDecoderFactory(rootEglBase.eglBaseContext)
     }
 
-    private fun buildPeerConnection(): PeerConnection? {
+    protected fun buildPeerConnection(): PeerConnection? {
 
         val rtcConfig = PeerConnection.RTCConfiguration(iceServer).apply {
             /* TCP candidates are only useful when connecting to a server that supports. ICE-TCP. */
-            iceTransportsType = PeerConnection.IceTransportsType.RELAY
             tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.DISABLED
             bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
             rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
-            /* Enable DTLS for normal calls and disable for loopback calls. */
             enableDtlsSrtp = true
-            // sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
+
             /* Use ECDSA encryption. */
             // keyType = PeerConnection.KeyType.ECDSA
         }
@@ -94,57 +97,29 @@ abstract class PeerManager(context: Context, private val observer: PeerConnectio
         })
     }
 
-    fun callOffer(sdpObserver: SdpObserver) {
-        peerConnection?.createOffer(object : SdpObserver by sdpObserver {
-            override fun onCreateSuccess(desc: SessionDescription?) {
-                peerConnection?.setLocalDescription(object : SdpObserver {
-                    override fun onSetFailure(p0: String?) {
-                        observer.onPeerError(true, showMessage = false, message = p0)
-                    }
-
-                    override fun onSetSuccess() {
-
-                    }
-
-                    override fun onCreateSuccess(p0: SessionDescription?) {
-
-                    }
-
-                    override fun onCreateFailure(p0: String?) {
-                        observer.onPeerError(true, showMessage = false, message = p0)
-                    }
-                }, desc)
-                sdpObserver.onCreateSuccess(desc)
-            }
-        }, constraints)
+    private val sdpObserver = object : AppSdpObserver() {
+        override fun onCreateSuccess(p0: SessionDescription?) {
+            peerConnection?.setLocalDescription(object : AppSdpObserver() {
+                override fun onSetFailure(p0: String?) {
+                    observer.onPeerError(true, showMessage = false, message = p0)
+                }
+                override fun onCreateFailure(p0: String?) {
+                    observer.onPeerError(true, showMessage = false, message = p0)
+                }
+            }, p0)
+            observer.onPeerCreate(p0)
+        }
     }
 
-    fun callAnswer(sdpObserver: SdpObserver) {
-        peerConnection?.createAnswer(object : SdpObserver by sdpObserver {
-            override fun onCreateSuccess(desc: SessionDescription?) {
-                peerConnection?.setLocalDescription(object : SdpObserver {
-                    override fun onSetFailure(p0: String?) {
-                        observer.onPeerError(true, showMessage = false, message = p0)
-                    }
-
-                    override fun onSetSuccess() {
-
-                    }
-
-                    override fun onCreateSuccess(p0: SessionDescription?) {
-
-                    }
-
-                    override fun onCreateFailure(p0: String?) {
-                        observer.onPeerError(true, showMessage = false, message = p0)
-                    }
-                }, desc)
-                sdpObserver.onCreateSuccess(desc)
-            }
-        }, constraints)
+    fun callOffer() {
+        peerConnection?.createOffer(sdpObserver, constraints)
     }
 
-    fun onRemoteSessionReceived(sdpObserver: SdpObserver, sessionDescription: SessionDescription) {
+    fun callAnswer() {
+        peerConnection?.createAnswer(sdpObserver, constraints)
+    }
+
+    fun onRemoteSessionReceived(sessionDescription: SessionDescription) {
         peerConnection?.setRemoteDescription(sdpObserver, sessionDescription)
     }
 
@@ -152,28 +127,25 @@ abstract class PeerManager(context: Context, private val observer: PeerConnectio
         peerConnection?.addIceCandidate(iceCandidate)
     }
 
-    open fun disconnectPeer() {
-        peerConnection?.dispose()
-        peerConnectionFactory.dispose()
-        rootEglBase.release()
-        PeerConnectionFactory.stopInternalTracingCapture()
-        PeerConnectionFactory.shutdownInternalTracer()
+    fun closePeer() {
+        peerConnection?.close()
+
     }
 
     open fun startLocalVoice() {
         // for voice peer manager
     }
 
-    open fun initSurfaceView(surfaceViewRenderer: SurfaceViewRenderer) {
-        // for video peer manager
-    }
+    open fun disconnectPeer() {
+        peerConnection?.dispose()
+        peerConnection = null
+        rootEglBase.release()
+        PeerConnectionFactory.stopInternalTracingCapture()
+        PeerConnectionFactory.shutdownInternalTracer()
 
-    open fun startLocalVideoCapture(localSurfaceView: SurfaceViewRenderer) {
-        // for video peer manager
-    }
-
-    open fun startRemoteVideoCapture(remoteSurfaceView: SurfaceViewRenderer, mediaStream: MediaStream) {
-        // for video peer manager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            peerConnectionFactory.dispose()
+        }
     }
 
 }

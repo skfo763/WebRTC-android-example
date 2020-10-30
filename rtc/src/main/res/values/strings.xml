@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="face_chat_retry_connection_error_msg">The network connection is unstable. Please check.</string>
+</resources>

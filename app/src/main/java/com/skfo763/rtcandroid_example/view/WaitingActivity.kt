@@ -5,34 +5,39 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.CompoundButton
+import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.databinding.DataBindingUtil
+import androidx.lifecycle.ViewModelProvider
 import com.skfo763.rtcandroid_example.R
+import com.skfo763.rtcandroid_example.base.WaitingActivityUseCase
+import com.skfo763.rtcandroid_example.databinding.ActivityWaitingBinding
 import com.skfo763.rtcandroid_example.utils.TokenManager
+import com.skfo763.rtcandroid_example.utils.isPermissionGranted
 import com.skfo763.rtcandroid_example.view.MainActivity.Companion.REQUEST_CODE_PERMISSION
+import com.skfo763.rtcandroid_example.viewmodel.WaitingActivityViewModel
 import kotlinx.android.synthetic.main.activity_waiting.*
 
-class WaitingActivity : AppCompatActivity(), CompoundButton.OnCheckedChangeListener {
+class WaitingActivity : AppCompatActivity(), WaitingActivityUseCase {
 
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_waiting)
-
-        setClickListeners()
-        switch_btn.setOnCheckedChangeListener(this)
-    }
-
-    private fun setClickListeners() {
-        appCompatButton.setOnClickListener {
-            requestPermission(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA)
-        }
-    }
+    lateinit var binding: ActivityWaitingBinding
 
     private fun requestPermission(vararg permissions: String) {
         ActivityCompat.requestPermissions(this, permissions, REQUEST_CODE_PERMISSION)
+    }
+
+    private val viewModel: WaitingActivityViewModel by lazy {
+        ViewModelProvider(this, WaitingActivityViewModel.Factory(this)).get(WaitingActivityViewModel::class.java)
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_waiting)
+        binding.viewModel = viewModel
+        binding.lifecycleOwner = this
     }
 
     override fun onRequestPermissionsResult(
@@ -54,27 +59,17 @@ class WaitingActivity : AppCompatActivity(), CompoundButton.OnCheckedChangeListe
                 .show()
         } else {
             startActivity(Intent(this, MainActivity::class.java).apply {
-                putExtra("token", getToken())
+                putExtra("token", viewModel.getToken(!binding.switchBtn.isChecked))
             })
         }
     }
 
-    private fun getToken(): String {
-        return TokenManager.getToken(!switch_btn.isChecked)
+    override fun startCall() {
+        requestPermission(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA)
     }
 
-    private fun isPermissionGranted(permission: String): Boolean {
-        return ContextCompat.checkSelfPermission(
-            this,
-            permission
-        ) == PackageManager.PERMISSION_GRANTED
+    override fun getResString(genderMale: Int): String {
+        return this.resources.getString(genderMale)
     }
 
-    override fun onCheckedChanged(buttonView: CompoundButton?, isChecked: Boolean) {
-        if(isChecked) {
-            switch_btn.text = "여자"
-        } else {
-            switch_btn.text = "남자"
-        }
-    }
 }

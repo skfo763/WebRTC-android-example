@@ -4,91 +4,117 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import com.google.gson.Gson
+import com.skfo763.rtc.R
 import com.skfo763.rtc.contracts.*
 import com.skfo763.rtc.data.*
-import com.skfo763.rtc.inobs.AppSdpObserver
 import com.skfo763.rtc.inobs.PeerConnectionObserver
 import com.skfo763.rtc.manager.*
+import com.skfo763.rtc.manager.audio.MAudioManager
+import com.skfo763.rtc.manager.audio.MAudioManagerImpl
 import org.json.JSONObject
-import org.webrtc.IceCandidate
-import org.webrtc.MediaStream
-import org.webrtc.SessionDescription
-import org.webrtc.SurfaceViewRenderer
+import org.webrtc.*
 import java.util.concurrent.atomic.AtomicBoolean
 
 class FaceChatRtcManager private constructor(
-    context: Context,
-    private val iFaceChatViewModelListener: IFaceChatViewModelListener
-) : PeerConnectionObserver(), PeerSignalCallback {
-
+        context: Context
+) : PeerConnectionObserver(), OnSocketListener {
 
     companion object {
-        @JvmStatic
-        fun createFaceChatRtcManager(
-            context: Context,
-            iFaceChatViewModelListener: IFaceChatViewModelListener
-        ): FaceChatRtcManager {
-            return FaceChatRtcManager(context, iFaceChatViewModelListener)
+        fun createFaceChatRtcManager(context: Context): FaceChatRtcManager {
+            return FaceChatRtcManager(context)
         }
     }
 
-    /** for block Peer dispose duplicate : it is useful for hangup process **/
+    lateinit var iFaceChatViewModelListener: IFaceChatViewModelListener
+
     private val isStart = AtomicBoolean(false)
     private val isReleased = AtomicBoolean(false)
     private var otherUserIdx: Int? = null
+    private val gson = Gson()
 
-    private var socketManager = SocketManagerImpl(this)
-    private var peerManager = VideoPeerManager(context, this)
-    private val audioManager = MAudioManagerImpl(context)
+    private val socketManager = RTCSocketManager(this)
+    private val peerManager = VideoPeerManager(context, this)
+    private val audioManager: MAudioManager = MAudioManagerImpl(context)
+    private val retryErrorMsg = context.getString(R.string.face_chat_retry_connection_error_msg)
 
-    private var waitingLocalView: SurfaceViewRenderer? = null
-    private var callingLocalView: SurfaceViewRenderer? = null
-    private var callingRemoteView: SurfaceViewRenderer? = null
-
-
-    fun addCallingLocalSurfaceView(localView: SurfaceViewRenderer) {
-        callingLocalView = localView
-        callingLocalView?.let {
-            peerManager.initSurfaceView(it)
-        }
-    }
-
-    fun addWaitingSurfaceView(localView: SurfaceViewRenderer) {
-        waitingLocalView = localView
-        waitingLocalView?.let {
-            peerManager.initSurfaceView(it)
-            peerManager.startSurfaceRtc(it)
-        }
-    }
-
-    fun startWaitingLocalSurfaceView() {
-        waitingLocalView?.let {
-            peerManager.startLocalVideoCapture(it)
-        }
-    }
-
-    fun startCallingLocalSurfaceView() {
-        callingLocalView?.let {
-            peerManager.startLocalVideoCapture(it)
-        }
-    }
-
-    fun addCallingSurfaceView(remoteView: SurfaceViewRenderer) {
-        callingRemoteView = remoteView
-        callingRemoteView?.let {
-            peerManager.initSurfaceView(it)
-        }
-    }
-
-    private val appSdpObserver = object: AppSdpObserver() {
-        override fun onCreateSuccess(desc: SessionDescription?) {
-            super.onCreateSuccess(desc)
-            desc?.let {
-                socketManager.sendOfferAnswerToSocket(it)
-            } ?: kotlin.run {
-                onPeerError(isCritical = false, showMessage = false, message = "Session description data is null")
+    var callingRemoteView: SurfaceViewRenderer? = null
+        set(value) {
+            value?.let {
+                initSurfaceView(it, true)
             }
+            field = value
         }
+
+    // 액티비티 실행 시 최초 1회
+    fun initializeVideoTrack() {
+        peerManager.addTrackToStream()
+    }
+
+    // onStart 시점에서 호출
+    fun startCameraCapturer() {
+        peerManager.startCameraCapture()
+    }
+
+    // 각 프래그먼트 생성 시 최초 1회
+    fun initSurfaceView(surfaceView: SurfaceViewRenderer, isRemote: Boolean = false) {
+        surfaceView.setMirror(!isRemote)
+        peerManager.initSurfaceView(surfaceView)
+    }
+
+    // 프래그먼트 트랜지션마다 호출 - 새로 띄워지는 프래그먼트의 서페이스뷰를 넣어준다.
+    fun attachVideoTrackToLocalSurface(surfaceView: SurfaceViewRenderer) {
+        peerManager.attachLocalTrackToSurface(surfaceView)
+    }
+
+    // 시그널링 서버 갈아끼워질때마다 (페이스챗 1 사이클 돌 때마다)
+    fun setPeerInfo(peer: SignalServerInfo) {
+        peerManager.setIceServer(peer)
+        peerManager.addStreamToPeerConnection()
+        socketManager.createSocket(peer.signalServerHost)
+    }
+
+    // 프래그먼트 트랜지션마다 호출 - 내려가는 프래그먼트의 서페이스뷰를 넣어준다.
+    fun detachVideoTrackFromLocalSurface(surfaceView: SurfaceViewRenderer) {
+        peerManager.detachLocalTrackFromSurface(surfaceView)
+    }
+
+    fun detachVideoTrackFromRemoteSurface(surfaceView: SurfaceViewRenderer) {
+        peerManager.stopRemotePreviewRendering(surfaceView)
+    }
+
+    // 통화 종료 시마다 호출 - 여러 케이스 있을텐데 통합해서 이건 다 불러주도록 합니다.
+    private fun releaseSocket(doAfterRelease: (() -> Unit)? = null) {
+        Handler(Looper.getMainLooper()).post {
+            isStart.set(false)
+            isReleased.set(true)
+
+            socketManager.run {
+                otherUserIdx = null
+                disconnectSocket()
+            }
+            peerManager.closePeer()
+            doAfterRelease?.invoke()
+        }
+    }
+
+    // 액티비티 종료 시 호출
+    fun disposePeer() {
+        peerManager.apply {
+            removeStreamFromPeerConnection()
+            removeTrackFromStream()
+            stopCameraCapture()
+            disconnectPeer()
+        }
+        audioManager.audioFocusLoss()
+    }
+
+    override fun onPeerCreate(desc: SessionDescription?) {
+        socketManager.sendOfferAnswerToSocket(desc!!)
+    }
+
+    override fun onPeerError(isCritical: Boolean, showMessage: Boolean, message: String?) {
+        this.onError(isCritical, showMessage, message)
     }
 
     override fun onIceCandidate(iceCandidate: IceCandidate?) {
@@ -103,195 +129,175 @@ class FaceChatRtcManager private constructor(
 
     override fun onAddStream(mediaStream: MediaStream?) {
         super.onAddStream(mediaStream)
+        Log.d("webrtcTAG", "onAddStream")
         audioManager.audioFocusDucking()
 
-        if(callingRemoteView != null && mediaStream != null) {
+        if (callingRemoteView != null && mediaStream != null) {
             peerManager.startRemoteVideoCapture(callingRemoteView!!, mediaStream)
         }
     }
 
-    override fun onPeerError(isCritical: Boolean, showMessage: Boolean, message: String?) {
-        this.onError(isCritical, showMessage, message)
-    }
-
-    fun setPeerInfo(peer: SignalServerInfo) {
-        peerManager.setIceServer(peer)
-    }
-
-    fun startWaiting(peer: SignalServerInfo) {
-        socketManager.initializeSocket(peer.signalServerHost)
-    }
-
-    fun stopCallSignFromClient(stoppedAt: StopCallType, shouldCloseSocket: Boolean) {
+    fun stopCallSignFromClient(stoppedAt: StopCallType) {
         when(stoppedAt) {
-            StopCallType.POWER_DESTROY -> releasePeerAndSocket()
-            StopCallType.GO_TO_STORE -> socketManager.sendHangUpEventToSocket(HANGUP, stoppedAt)
-            StopCallType.AT_FRAGMENT -> {
-                if(!shouldCloseSocket && isStart.get()) socketManager.sendHangUpEventToSocket(HANGUP, stoppedAt)
-                else releasePeerAndSocket {
-                    iFaceChatViewModelListener.onUiEvent(VoiceChatUiEvent.STOP_PROCESS_COMPLETE)
-                }
+            StopCallType.STOP_WAITING -> releaseSocket { hangUpSuccess(stoppedAt) }
+            StopCallType.GO_TO_INTRO -> releaseSocket {
+                hangUpSuccess(stoppedAt)
             }
-            StopCallType.QUIT_ACTIVITY -> {
-                if(!shouldCloseSocket && isStart.get()) socketManager.sendHangUpEventToSocket(HANGUP, stoppedAt)
-                else releasePeerAndSocket {
-                    iFaceChatViewModelListener.onUiEvent(VoiceChatUiEvent.FINISH)
-                }
+            StopCallType.QUIT_ACTIVITY -> releaseSocket {
+                Log.d("webrtcTAG", "stop at destroy activity")
             }
+            else -> socketManager.sendHangUpEventToSocket(HANGUP, { hangUp(it)} ) { hangUpSuccess(stoppedAt) }
         }
     }
 
-    override fun onConnected(connectData: Array<Any>) {
-        val userInfo = iFaceChatViewModelListener.callUserInfo()
-        val authInfo = JSONObject().apply {
-            put(TOKEN, userInfo.token)
-            put(PASSWORD, userInfo.password)
-            put(BLNID_MODE, userInfo.isBlindMode)
-            if(isStart.get()) {
-                put(STATUS, MATCHED)
-                put(OTHER, otherUserIdx)
-            }
+    private fun hangUp(data: JSONObject) = Unit
+
+    private fun hangUpSuccess(stoppedAt: StopCallType) {
+        Log.d("webrtcTAG", "onHangUpSuccess")
+        val uiEvent = when (stoppedAt) {
+            StopCallType.QUIT_ACTIVITY -> RtcUiEvent.FINISH
+            StopCallType.GO_TO_INTRO -> RtcUiEvent.FINISH
+            StopCallType.STOP_WAITING -> RtcUiEvent.FINISH
+            else -> RtcUiEvent.STOP_PROCESS_COMPLETE
         }
-        socketManager.sendJoinToSocket(authInfo)
-    }
-
-    override fun createMatchingOffer() {
-        peerManager.callOffer(appSdpObserver)
-        socketManager.sendCommonEventToSocket(CALL_STARTED)
-        if(!isStart.get()) {
-            iFaceChatViewModelListener.onUiEvent(VoiceChatUiEvent.START_CALL)
-        }
-        isStart.set(true)
-    }
-
-    override fun createMatchingAnswer() {
-        peerManager.callAnswer(appSdpObserver)
-        socketManager.sendCommonEventToSocket(CALL_STARTED)
-        if(!isStart.get()) {
-            iFaceChatViewModelListener.onUiEvent(VoiceChatUiEvent.START_CALL)
-        }
-        isStart.set(true)
-    }
-
-    override fun onOfferReceived(description: SessionDescription) {
-        peerManager.run {
-            onRemoteSessionReceived(appSdpObserver, description)
-            callAnswer(appSdpObserver)
-        }
-    }
-
-    override fun onAnswerReceived(description: SessionDescription) {
-        peerManager.onRemoteSessionReceived(appSdpObserver, description)
-    }
-
-    override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
-        peerManager.addIceCandidate(iceCandidate)
-    }
-
-    override fun onMatched(data: JSONObject) {
-        try {
-            val isOffer = data.getBoolean(OFFER)
-            val otherIdx = data.getInt(OTHER_IDX)
-            val duration = data.getInt(DURATION_SECOND)
-            iFaceChatViewModelListener.sendTimerAndIdx(duration, otherIdx)
-            this.otherUserIdx = otherIdx
-            startCallingLocalSurfaceView()
-
-            if(isOffer) createMatchingOffer()
-            else createMatchingAnswer()
-        } catch (e: Exception) {
-            onPeerError(true, message = e.message)
-        }
-    }
-
-    override fun onHangUp(data: JSONObject) {
-        val displayRating = data.optBoolean(DISPLAY_RATING)
-        val matchIdx = data.optInt(MATCH_IDX)
-        iFaceChatViewModelListener.sendFinishInfo(displayRating, matchIdx)
-    }
-
-    override fun onHangUpSuccess(stoppedAt: StopCallType) {
-        val uiEvent = when(stoppedAt) {
-            StopCallType.GO_TO_STORE -> VoiceChatUiEvent.FINISH_WITH_STORE
-            StopCallType.QUIT_ACTIVITY -> VoiceChatUiEvent.FINISH
-            else -> VoiceChatUiEvent.STOP_PROCESS_COMPLETE
-        }
-        releasePeerAndSocket {
+        releaseSocket {
             iFaceChatViewModelListener.onUiEvent(uiEvent)
         }
     }
 
-    override fun onTerminate(terminateState: String) {
-        when(terminateState) {
+    private fun onError(shouldClosePeer: Boolean, showMessage: Boolean, message: String?) {
+        if (shouldClosePeer) {
+            iFaceChatViewModelListener.onError(ErrorHandleData(true, message ?: "", showMessage))
+        }
+        Log.d("webrtcTAG", "message = $message, showMessage = $showMessage")
+    }
+
+    override fun onSocketState(state: String, data: Array<Any>, onComplete: (() -> Unit)?) {
+        when (state) {
+            "connect" -> onSocketConnected(data)
+            "message" -> onSocketMessage(data)
+            "matched" -> data.forEach { onSocketMatched(gson.fromJson("$it", MatchModel::class.java)) }
+            "waiting_status" -> data.forEach { waitingStatusReceived(JSONObject("$it")) }
+            "terminated" -> onTerminated(data)
+            "disconnect" -> onError(false, false, message = SERVER_DISCONNECT)
+            "reconnect" -> onError(false, showMessage = false, message = "${data[0]}")
+            "connectRetryError" -> iFaceChatViewModelListener.onUiEvent(RtcUiEvent.RETRY)
+            "connectError" -> onError(true, true, message = retryErrorMsg)
+        }
+    }
+
+    private fun onSocketConnected(data: Array<Any>) {
+        Log.d("webrtcTAG", "onSocketConnected")
+        val userInfo = iFaceChatViewModelListener.getUserInfo()
+        val authInfo = JSONObject().apply {
+            put(TOKEN, userInfo.token)
+            put(PASSWORD, userInfo.password)
+            put(SKIN, "none")
+            if (isStart.get()) {
+                put(STATUS, MATCHED)
+                put(OTHER, otherUserIdx)
+            }
+        }
+        socketManager.socketJoin(authInfo) {
+            terminate(it)
+        }
+    }
+
+    private fun onSocketMessage(message: Array<Any>) {
+        try {
+            val data = JSONObject(message[0].toString())
+            when (data["type"]) {
+                OFFER -> onSocketOfferReceived(SessionDescription(SessionDescription.Type.OFFER, "${data[SDP]}"))
+                ANSWER -> onSocketAnswerReceived(SessionDescription(SessionDescription.Type.ANSWER, "${data[SDP]}"))
+                CANDIDATE -> onSocketIceCandidateReceived(IceCandidate(data[ID].toString(), data.getInt(LABEL), data[CANDIDATE].toString()))
+                else -> onError(shouldClosePeer = false, showMessage = false, message = "unsupported socket message")
+            }
+        } catch (e: java.lang.Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun onSocketOfferReceived(description: SessionDescription) {
+        Log.d("webrtcTAG", "onOfferReceived")
+        peerManager.run {
+            onRemoteSessionReceived(description)
+            callAnswer()
+        }
+    }
+
+    private fun onSocketAnswerReceived(description: SessionDescription) {
+        Log.d("webrtcTAG", "onSocketAnswerReceived")
+        peerManager.onRemoteSessionReceived(description)
+    }
+
+    private fun onSocketIceCandidateReceived(iceCandidate: IceCandidate) {
+        Log.d("webrtcTAG", "onSocketIceCandidateReceived")
+        peerManager.addIceCandidate(iceCandidate)
+    }
+
+    private fun onSocketMatched(data: MatchModel) {
+        try {
+            Log.d("webrtcTAG", "onSocketMatched")
+            this.otherUserIdx = data.otherIdx
+            if(!isStart.get()) {
+                if (data.isOffer) createOffer()
+                else createAnswer()
+
+                iFaceChatViewModelListener.onUiEvent(RtcUiEvent.START_CALL)
+                isStart.set(true)
+                iFaceChatViewModelListener.onMatched(data)
+            }
+        } catch (e: Exception) {
+            onPeerError(true, showMessage = true, message = e.message)
+        }
+    }
+
+    private fun createOffer() {
+        Log.d("webrtcTAG", "createOffer")
+        peerManager.callOffer()
+        socketManager.sendEventToSocket(CALL_STARTED)
+    }
+
+    private fun createAnswer() {
+        Log.d("webrtcTAG", "createAnswer")
+        peerManager.callAnswer()
+        socketManager.sendEventToSocket(CALL_STARTED)
+    }
+
+    private fun waitingStatusReceived(data: JSONObject) {
+        iFaceChatViewModelListener.updateWaitInfo(data.getString(WAITING_TEXT))
+    }
+
+    private fun onTerminated(data: Array<Any>) {
+        var terminateCase = HANGUP
+        var message: String? = null
+        try {
+            val jsonObject = JSONObject("${data[0]}")
+            terminateCase = jsonObject.getString(TERMINATED_CASE) ?: HANGUP
+            message = jsonObject.getString("msg")
+            hangUp(jsonObject)
+        } catch (e: Exception) {
+            onError(true, showMessage = false, message = e.message)
+        } finally {
+            terminate(terminateCase, message)
+        }
+    }
+
+    private fun terminate(state: String, message: String? = null) {
+        when (state) {
             TIMEOUT, DISCONNECTION, HANGUP -> {
-                releasePeerAndSocket {
-                    iFaceChatViewModelListener.onUiEvent(VoiceChatUiEvent.STOP_PROCESS_COMPLETE)
+                releaseSocket {
+                    iFaceChatViewModelListener.onUiEvent(RtcUiEvent.STOP_PROCESS_COMPLETE, message)
                 }
             }
-            QUICK_REFUND -> {
-                releasePeerAndSocket {
-                    iFaceChatViewModelListener.onUiEvent(VoiceChatUiEvent.STOP_PROCESS_COMPLETE)
-                    iFaceChatViewModelListener.onUiEvent(VoiceChatUiEvent.QUICK_REFUND)
-                }
-            }
-            else ->  {
+            else -> {
                 iFaceChatViewModelListener.onError(ErrorHandleData(true, "", true))
             }
         }
     }
 
-    override fun onError(isCritical: Boolean, showMessage: Boolean, message: String?) {
-        if(isCritical) {
-            iFaceChatViewModelListener.onError(ErrorHandleData(true, message ?: "", showMessage))
-        }
-        Log.d("RTC-Android", "message = $message, showMessage = $showMessage")
-    }
-
-    override fun onWaitingStatusReceived(data: JSONObject) {
-        val waitingText = data.getString(WAITING_TEXT)
-        iFaceChatViewModelListener.updateWaitInfo(waitingText)
-    }
-
-    private fun releasePeerAndSocket(doAfterRelease: (() -> Unit)? = null) {
-        Handler(Looper.getMainLooper()).post {
-            isStart.set(false)
-            isReleased.set(true)
-
-            releaseWaitingSurface()
-            releaseCallingSurface()
-
-            socketManager.run {
-                otherUserIdx = null
-                disconnectSocket()
-            }
-
-            peerManager.run {
-                disconnectPeer()
-            }
-
-            audioManager?.audioFocusLoss()
-
-            doAfterRelease?.invoke()
-        }
-    }
-
-    fun releaseWaitingSurface() {
-        waitingLocalView?.run {
-            release()
-            waitingLocalView = null
-        }
-    }
-
-    fun releaseCallingSurface() {
-        callingLocalView?.run {
-            release()
-            callingLocalView = null
-        }
-
-        callingRemoteView?.run {
-            release()
-            callingRemoteView = null
-        }
+    fun changeCameraFacing(handler: CameraVideoCapturer.CameraSwitchHandler) {
+        peerManager.changeCameraFacing(handler)
     }
 
 }
