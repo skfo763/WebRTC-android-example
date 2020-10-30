@@ -11,7 +11,7 @@
 1. 상대방과 offer / answer 를 주고받고, Ice Candidates를 주고받은 후 둘이서 P2P direct 통신을 합니다.
 2. (1) 번 과정은 [소켓 통신을 통해서 이루어집니다.
 3. WebRTC를 사용하는 중 발생하는 소켓 통신을 도식화한 간단한 이미지를 첨부합니다.
-![webrtc-socket-img](./art/webrtc-socket-img.png)
+![webrtc-socket-img](https://github.com/skfo763/WebRTC-android-example/blob/master/.github/art/webrtc-socket-img.png)
 
 ## 2. Architecture
 
