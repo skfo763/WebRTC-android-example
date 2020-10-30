@@ -6,6 +6,8 @@ Warning : This repository is still developing now, and not completed.
 
 ℹ️릴리즈 노트 및 이슈 트래킹은 [WebRTC](http://webrtc.github.io/webrtc-org/) 웹 페이지를 참조하세요.
 
+## 0. Demo Video.
+[![Video Label](http://img.youtube.com/vi/VQBzslcEH4o/0.jpg)](https://youtu.be/VQBzslcEH4o?t=0s)
 
 ## 1. Summary
 1. 상대방과 offer / answer 를 주고받고, Ice Candidates를 주고받은 후 둘이서 P2P direct 통신을 합니다.
