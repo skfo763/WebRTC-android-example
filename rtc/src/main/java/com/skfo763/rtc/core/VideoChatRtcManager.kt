@@ -16,17 +16,17 @@ import org.json.JSONObject
 import org.webrtc.*
 import java.util.concurrent.atomic.AtomicBoolean
 
-class FaceChatRtcManager private constructor(
+class VideoChatRtcManager private constructor(
         context: Context
 ) : PeerConnectionObserver(), OnSocketListener {
 
     companion object {
-        fun createFaceChatRtcManager(context: Context): FaceChatRtcManager {
-            return FaceChatRtcManager(context)
+        fun createFaceChatRtcManager(context: Context): VideoChatRtcManager {
+            return VideoChatRtcManager(context)
         }
     }
 
-    lateinit var iFaceChatViewModelListener: IFaceChatViewModelListener
+    lateinit var iVideoChatViewModelListener: IVideoChatViewModelListener
 
     private val isStart = AtomicBoolean(false)
     private val isReleased = AtomicBoolean(false)
@@ -161,13 +161,13 @@ class FaceChatRtcManager private constructor(
             else -> RtcUiEvent.STOP_PROCESS_COMPLETE
         }
         releaseSocket {
-            iFaceChatViewModelListener.onUiEvent(uiEvent)
+            iVideoChatViewModelListener.onUiEvent(uiEvent)
         }
     }
 
     private fun onError(shouldClosePeer: Boolean, showMessage: Boolean, message: String?) {
         if (shouldClosePeer) {
-            iFaceChatViewModelListener.onError(ErrorHandleData(true, message ?: "", showMessage))
+            iVideoChatViewModelListener.onError(ErrorHandleData(true, message ?: "", showMessage))
         }
         Log.d("webrtcTAG", "message = $message, showMessage = $showMessage")
     }
@@ -181,14 +181,14 @@ class FaceChatRtcManager private constructor(
             "terminated" -> onTerminated(data)
             "disconnect" -> onError(false, false, message = SERVER_DISCONNECT)
             "reconnect" -> onError(false, showMessage = false, message = "${data[0]}")
-            "connectRetryError" -> iFaceChatViewModelListener.onUiEvent(RtcUiEvent.RETRY)
+            "connectRetryError" -> iVideoChatViewModelListener.onUiEvent(RtcUiEvent.RETRY)
             "connectError" -> onError(true, true, message = retryErrorMsg)
         }
     }
 
     private fun onSocketConnected(data: Array<Any>) {
         Log.d("webrtcTAG", "onSocketConnected")
-        val userInfo = iFaceChatViewModelListener.getUserInfo()
+        val userInfo = iVideoChatViewModelListener.getUserInfo()
         val authInfo = JSONObject().apply {
             put(TOKEN, userInfo.token)
             put(PASSWORD, userInfo.password)
@@ -243,9 +243,9 @@ class FaceChatRtcManager private constructor(
                 if (data.isOffer) createOffer()
                 else createAnswer()
 
-                iFaceChatViewModelListener.onUiEvent(RtcUiEvent.START_CALL)
+                iVideoChatViewModelListener.onUiEvent(RtcUiEvent.START_CALL)
                 isStart.set(true)
-                iFaceChatViewModelListener.onMatched(data)
+                iVideoChatViewModelListener.onMatched(data)
             }
         } catch (e: Exception) {
             onPeerError(true, showMessage = true, message = e.message)
@@ -265,7 +265,7 @@ class FaceChatRtcManager private constructor(
     }
 
     private fun waitingStatusReceived(data: JSONObject) {
-        iFaceChatViewModelListener.updateWaitInfo(data.getString(WAITING_TEXT))
+        iVideoChatViewModelListener.updateWaitInfo(data.getString(WAITING_TEXT))
     }
 
     private fun onTerminated(data: Array<Any>) {
@@ -287,11 +287,11 @@ class FaceChatRtcManager private constructor(
         when (state) {
             TIMEOUT, DISCONNECTION, HANGUP -> {
                 releaseSocket {
-                    iFaceChatViewModelListener.onUiEvent(RtcUiEvent.STOP_PROCESS_COMPLETE, message)
+                    iVideoChatViewModelListener.onUiEvent(RtcUiEvent.STOP_PROCESS_COMPLETE, message)
                 }
             }
             else -> {
-                iFaceChatViewModelListener.onError(ErrorHandleData(true, "", true))
+                iVideoChatViewModelListener.onError(ErrorHandleData(true, "", true))
             }
         }
     }

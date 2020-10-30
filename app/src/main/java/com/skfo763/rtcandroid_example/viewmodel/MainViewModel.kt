@@ -7,9 +7,9 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.skfo763.rtc.contracts.ErrorHandleData
-import com.skfo763.rtc.contracts.IFaceChatViewModelListener
+import com.skfo763.rtc.contracts.IVideoChatViewModelListener
 import com.skfo763.rtc.contracts.RtcUiEvent
-import com.skfo763.rtc.core.FaceChatRtcManager
+import com.skfo763.rtc.core.VideoChatRtcManager
 import com.skfo763.rtc.data.MatchModel
 import com.skfo763.rtc.data.SignalServerInfo
 import com.skfo763.rtc.data.UserJoinInfo
@@ -20,10 +20,10 @@ import com.skfo763.rtcandroid_example.base.MessageType
 import com.skfo763.rtcandroid_example.utils.TokenManager
 import org.webrtc.CameraVideoCapturer
 
-class MainViewModel(val rtcModule: FaceChatRtcManager, val useCase: MainActivityUseCase) : ViewModel(), IFaceChatViewModelListener {
+class MainViewModel(val rtcModule: VideoChatRtcManager, val useCase: MainActivityUseCase) : ViewModel(), IVideoChatViewModelListener {
 
     init {
-        rtcModule.iFaceChatViewModelListener = this
+        rtcModule.iVideoChatViewModelListener = this
     }
 
     private val _fragmentType = MutableLiveData<Pair<FragmentType, Boolean>>()
@@ -109,7 +109,7 @@ class MainViewModel(val rtcModule: FaceChatRtcManager, val useCase: MainActivity
         private val useCase: MainActivityUseCase
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel?> create(modelClass: Class<T>): T {
-            return MainViewModel(FaceChatRtcManager.createFaceChatRtcManager(context), useCase) as T
+            return MainViewModel(VideoChatRtcManager.createFaceChatRtcManager(context), useCase) as T
         }
     }
 }

@@ -3,7 +3,7 @@ package com.skfo763.rtc.contracts
 import com.skfo763.rtc.data.MatchModel
 import com.skfo763.rtc.data.UserJoinInfo
 
-interface IFaceChatViewModelListener  {
+interface IVideoChatViewModelListener  {
 
     fun onMatched(data: MatchModel)
 
